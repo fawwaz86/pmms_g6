@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+// Import your ListKpiPage
+import 'Pages/ManageKpi/listKpiPage.dart';
+
 
 void main() {
   runApp(const MyApp());
@@ -108,6 +111,16 @@ class _MyHomePageState extends State<MyHomePage> {
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 20), // space before button
+            ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ListKpiPage()),
+                );
+              },
+              child: const Text('Go to List KPI Page'),
             ),
           ],
         ),

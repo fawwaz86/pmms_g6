@@ -1,60 +1,45 @@
 import 'package:flutter/material.dart';
 
-class ListKpiPage extends StatefulWidget {
+class ListKpiPage extends StatelessWidget {
   const ListKpiPage({super.key});
 
   @override
-  State<ListKpiPage> createState() => _ListKpiPageState();
-}
-
-class _ListKpiPageState extends State<ListKpiPage> {
-  // Example KPI list
-  final List<String> _kpiList = [
-    'Increase sales by 10%',
-    'Customer satisfaction 90%',
-    'Reduce support tickets by 20%',
-  ];
-
-  @override
   Widget build(BuildContext context) {
+    // Dummy KPI data
+    final List<Map<String, String>> kpiList = [
+      {"title": "Increase Sales", "target": "10%"},
+      {"title": "Customer Feedback", "target": "90% positive"},
+      {"title": "Reduce Complaints", "target": "5 per month"},
+    ];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Manage KPI'),
+        // AppBar for ListKpiPage
+        title: const Text('List of KPIs'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: _kpiList.isEmpty
-            ? const Center(
-                child: Text('No KPIs found', style: TextStyle(fontSize: 18)),
-              )
-            : ListView.builder(
-                itemCount: _kpiList.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    elevation: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 6),
-                    child: ListTile(
-                      title: Text(_kpiList[index]),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          setState(() {
-                            _kpiList.removeAt(index); // remove KPI
-                          });
-                        },
-                      ),
-                    ),
+        child: ListView.builder(
+          itemCount: kpiList.length,
+          itemBuilder: (context, index) {
+            final kpi = kpiList[index];
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              child: ListTile(
+                title: Text(kpi["title"] ?? ""),
+                subtitle: Text("Target: ${kpi["target"]}"),
+                trailing: const Icon(Icons.arrow_forward_ios),
+                onTap: () {
+                  // Here you can navigate to KPI details page later
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Tapped on ${kpi["title"]}')),
                   );
                 },
               ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Add new KPI
-        },
-        child: const Icon(Icons.add),
-        tooltip: 'Add KPI',
+            );
+          },
+        ),
       ),
     );
   }
