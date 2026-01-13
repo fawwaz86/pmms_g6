@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'ManageKpi/listKpiPage.dart';
 import 'ManageActivity/listActivityPage.dart';
 import 'ManageRegistration/listRegistrationPage.dart';
+import 'ManageUserProfile/viewProfilePage.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,44 +31,28 @@ class _HomePageState extends State<HomePage> {
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
 
-      // Try to get user from 'users' collection (staff)
-      var doc = await FirebaseFirestore.instance
+      final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
           .get();
 
-      if (doc.exists) {
-        setState(() {
-          userRole = doc['role'] ?? 'staff';
-          userName = doc['name'] ?? 'User';
-          userId = uid;
-          isLoading = false;
-        });
-        return;
+      if (!doc.exists) {
+        throw Exception('User record not found');
       }
 
-      // If not found in 'users', try 'registration' collection (preacher)
-      doc = await FirebaseFirestore.instance
-          .collection('registration')
-          .doc(uid)
-          .get();
+      if (!mounted) return;
 
-      if (doc.exists) {
-        setState(() {
-          userRole = 'preacher';
-          userName = doc['preacherName'] ?? 'Preacher';
-          userId = uid;
-          isLoading = false;
-        });
-        return;
-      }
-
-      // If user not found in either collection
       setState(() {
+        userRole = doc['role'];
+        userName = doc['name'];
+        userId = uid;
         isLoading = false;
       });
     } catch (e) {
-      print('Error loading user: $e');
+      debugPrint('Error loading user: $e');
+
+      if (!mounted) return;
+
       setState(() {
         isLoading = false;
       });
@@ -76,53 +61,17 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Loading state
+    // 🔄 Loading
     if (isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    // Error state - user not found
+    // ❌ Unauthorized / broken user
     if (userRole.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Error'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.logout),
-              onPressed: () => FirebaseAuth.instance.signOut(),
-            )
-          ],
-        ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.error_outline,
-                size: 80,
-                color: Colors.red,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'User not found in database',
-                style: TextStyle(fontSize: 18),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'UID: $userId',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton.icon(
-                onPressed: () => FirebaseAuth.instance.signOut(),
-                icon: const Icon(Icons.logout),
-                label: const Text('Logout'),
-              ),
-            ],
-          ),
-        ),
+      return const Scaffold(
+        body: Center(child: Text('Unauthorized access')),
       );
     }
 
@@ -133,25 +82,27 @@ class _HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => FirebaseAuth.instance.signOut(),
-          )
+          ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // User Info Card
+            // ================= USER INFO =================
             Card(
               elevation: 4,
               child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
                     Icon(
-                      userRole == 'staff'
-                          ? Icons.admin_panel_settings
-                          : Icons.person,
+                      userRole == 'admin'
+                          ? Icons.security
+                          : userRole == 'staff'
+                              ? Icons.admin_panel_settings
+                              : Icons.person,
                       size: 50,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -164,9 +115,11 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     Text(
-                      userRole == 'staff'
-                          ? 'MUIP Officer'
-                          : 'Preacher',
+                      userRole == 'admin'
+                          ? 'System Admin'
+                          : userRole == 'staff'
+                              ? 'MUIP Officer'
+                              : 'Preacher',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -179,7 +132,7 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 30),
 
-            // Dashboard Title
+            // ================= DASHBOARD =================
             const Text(
               'Dashboard',
               style: TextStyle(
@@ -190,13 +143,14 @@ class _HomePageState extends State<HomePage> {
 
             const SizedBox(height: 20),
 
-            // Module Cards
+            // ================= MODULES =================
             Expanded(
               child: GridView.count(
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
+                  // ACTIVITIES
                   _buildModuleCard(
                     context,
                     title: 'Activities',
@@ -212,6 +166,8 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
+
+                  // KPI
                   _buildModuleCard(
                     context,
                     title: 'Manage KPI',
@@ -227,23 +183,79 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
 
-                  // 🔐 STAFF ONLY
-                  if (userRole == 'staff')
+                  // ================= ADMIN =================
+                  if (userRole == 'admin') ...[
                     _buildModuleCard(
                       context,
-                      title: 'User Management',
-                      icon: Icons.people,
+                      title: 'Staff Approval',
+                      icon: Icons.verified_user,
                       color: Colors.orange,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const ListRegistrationPage(),
+                            builder: (_) => const ListRegistrationPage(
+                              mode: 'staffApproval',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildModuleCard(
+                      context,
+                      title: 'View Preachers',
+                      icon: Icons.record_voice_over,
+                      color: Colors.blue,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ListRegistrationPage(
+                              mode: 'preacherView',
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
+                  // ================= STAFF =================
+                  if (userRole == 'staff')
+                    _buildModuleCard(
+                      context,
+                      title: 'Manage Preachers',
+                      icon: Icons.manage_accounts,
+                      color: Colors.green,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ListRegistrationPage(
+                              mode: 'preacherManagement',
+                            ),
                           ),
                         );
                       },
                     ),
 
+                  // ================= PROFILE =================
+                  if (userRole == 'staff' || userRole == 'preacher')
+                    _buildModuleCard(
+                      context,
+                      title: 'My Profile',
+                      icon: Icons.person,
+                      color: Colors.purple,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ViewProfilePage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                  // REPORTS
                   _buildModuleCard(
                     context,
                     title: 'Reports',
@@ -266,6 +278,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  // ================= CARD BUILDER =================
   Widget _buildModuleCard(
     BuildContext context, {
     required String title,
@@ -279,7 +292,7 @@ class _HomePageState extends State<HomePage> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
