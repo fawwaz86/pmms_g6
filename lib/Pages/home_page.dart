@@ -157,13 +157,11 @@ class _HomePageState extends State<HomePage> {
                     icon: Icons.event_note,
                     color: Colors.blue,
                     onTap: () {
+                      // ✅ UPDATED - No parameters needed!
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ListActivityPage(
-                            userRole: userRole,
-                            userId: userId,
-                          ),
+                          builder: (_) => const ListActivityPage(),
                         ),
                       );
                     },
@@ -179,7 +177,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ListKpiPage(),
+                          builder: (_) => ListKpiPage(),
                         ),
                       );
                     },
