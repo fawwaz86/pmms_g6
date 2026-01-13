@@ -22,6 +22,7 @@ class _EditActivityPageState extends State<EditActivityPage> {
   late TextEditingController _notesController;
 
   DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;  // ✅ Added
   String? _selectedPreacherId;
   ActivityStatus? _selectedStatus;
   bool _isSaving = false;
@@ -36,6 +37,13 @@ class _EditActivityPageState extends State<EditActivityPage> {
     _locationController = TextEditingController(text: widget.activity.location);
     _notesController = TextEditingController(text: widget.activity.notes ?? '');
     _selectedDate = widget.activity.scheduledDate;
+    
+    // ✅ Extract time from scheduledDate
+    _selectedTime = TimeOfDay(
+      hour: widget.activity.scheduledDate.hour,
+      minute: widget.activity.scheduledDate.minute,
+    );
+    
     _selectedPreacherId = widget.activity.assignedPreacherId;
     _selectedStatus = widget.activity.status;
     _loadPreachers();
@@ -92,6 +100,30 @@ class _EditActivityPageState extends State<EditActivityPage> {
     }
   }
 
+  // ✅ Added time picker
+  Future<void> _selectTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+      });
+    }
+  }
+
   Future<void> _updateActivity() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -100,6 +132,14 @@ class _EditActivityPageState extends State<EditActivityPage> {
     if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a scheduled date')),
+      );
+      return;
+    }
+
+    // ✅ Added time validation
+    if (_selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a time')),
       );
       return;
     }
@@ -120,11 +160,20 @@ class _EditActivityPageState extends State<EditActivityPage> {
         (p) => p['id'] == _selectedPreacherId,
       );
 
+      // ✅ Combine date and time
+      final scheduledDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
       final updatedActivity = widget.activity.copyWith(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         location: _locationController.text.trim(),
-        scheduledDate: _selectedDate!,
+        scheduledDate: scheduledDateTime,  // ✅ Now includes time
         assignedPreacherId: _selectedPreacherId!,
         assignedPreacherName: preacher['name']!,
         status: _selectedStatus!,
@@ -290,6 +339,24 @@ class _EditActivityPageState extends State<EditActivityPage> {
                         _selectedDate == null
                             ? 'Select date'
                             : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ✅ Time Picker (NEW)
+                  InkWell(
+                    onTap: _selectTime,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Scheduled Time *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.access_time),
+                      ),
+                      child: Text(
+                        _selectedTime == null
+                            ? 'Select time'
+                            : _selectedTime!.format(context),
                       ),
                     ),
                   ),
@@ -462,6 +529,9 @@ class _EditActivityPageState extends State<EditActivityPage> {
   }
 
   String _formatDateTime(DateTime dateTime) {
-    return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    final hour = dateTime.hour == 0 ? 12 : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} at $hour:$minute $period';
   }
 }

@@ -65,8 +65,8 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
             const SizedBox(height: 12),
             _buildDetailCard(
               icon: Icons.calendar_today,
-              title: 'Scheduled Date',
-              content: _formatDate(_currentActivity.scheduledDate),
+              title: 'Scheduled Date & Time',  // ✅ Updated title
+              content: _formatDateTime(_currentActivity.scheduledDate),  // ✅ Show time
             ),
             const SizedBox(height: 12),
             _buildDetailCard(
@@ -484,11 +484,11 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
-  }
-
+  // ✅ Updated to show AM/PM format
   String _formatDateTime(DateTime dateTime) {
-    return '${dateTime.day}/${dateTime.month}/${dateTime.year} at ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    final hour = dateTime.hour == 0 ? 12 : (dateTime.hour > 12 ? dateTime.hour - 12 : dateTime.hour);
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '${dateTime.day}/${dateTime.month}/${dateTime.year} at $hour:$minute $period';
   }
 }
