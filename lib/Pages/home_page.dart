@@ -34,7 +34,7 @@ class _HomePageState extends State<HomePage> {
         .get();
 
     setState(() {
-      userRole = doc['role']; // 'staff' or 'preacher'
+      userRole = doc['role']; // admin | staff | preacher
       userName = doc['name'];
       userId = uid;
     });
@@ -72,9 +72,11 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   children: [
                     Icon(
-                      userRole == 'staff'
-                          ? Icons.admin_panel_settings
-                          : Icons.person,
+                      userRole == 'admin'
+                          ? Icons.security
+                          : userRole == 'staff'
+                            ? Icons.admin_panel_settings
+                            : Icons.person,
                       size: 50,
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -87,12 +89,14 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     Text(
-                      userRole == 'staff'
-                          ? 'MUIP Officer'
-                          : 'Preacher',
+                    userRole == 'admin'
+                    ? 'System Admin'
+                    : userRole == 'staff'
+                        ? 'MUIP Officer'
+                        : 'Preacher',
                       style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
+                    fontSize: 14,
+                      color: Colors.grey[600],
                       ),
                     ),
                   ],
@@ -137,6 +141,8 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
+
+
                   _buildModuleCard(
                     context,
                     title: 'Manage KPI',
@@ -152,18 +158,24 @@ class _HomePageState extends State<HomePage> {
                     },
                   ),
 
-                  // 🔐 STAFF ONLY
-                  if (userRole == 'staff')
+                  // REGISTRATION / USER MANAGEMENT
+                  if (userRole == 'admin' || userRole == 'staff')
                     _buildModuleCard(
                       context,
-                      title: 'User Management',
+                      title: userRole == 'admin'
+                          ? 'Staff Approval'
+                          : 'User Management',
                       icon: Icons.people,
                       color: Colors.orange,
                       onTap: () {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const ListRegistrationPage(),
+                            builder: (_) => ListRegistrationPage(
+                              mode: userRole == 'admin'
+                                  ? 'staffApproval'
+                                  : 'preacherManagement',
+                            ),
                           ),
                         );
                       },

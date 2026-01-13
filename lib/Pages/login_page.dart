@@ -1,5 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'ManageRegistration/staffRegistrationPage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,28 +15,81 @@ class _LoginPageState extends State<LoginPage> {
   final passwordController = TextEditingController();
 
   bool loading = false;
+  bool obscurePassword = true;
   String? errorMessage;
 
-  Future<void> login() async {
-    setState(() {
-      loading = true;
-      errorMessage = null;
-    });
+Future<void> login() async {
+  setState(() {
+    loading = true;
+    errorMessage = null;
+  });
 
-    try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text.trim(),
-      );
-    } on FirebaseAuthException catch (e) {
+  try {
+    // 1️⃣ Firebase Auth login
+    UserCredential cred =
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+    );
+
+    final uid = cred.user!.uid;
+
+    // 2️⃣ Get user document from Firestore
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
+
+    if (!doc.exists) {
+      await FirebaseAuth.instance.signOut();
       setState(() {
-        errorMessage = e.message;
+        errorMessage = 'Account record not found.';
       });
-    } finally {
-      setState(() {
-        loading = false;
-      });
+      return;
     }
+
+    final data = doc.data()!;
+    final role = data['role'];
+    final status = data['status'];
+
+    // 3️⃣ BLOCK pending staff
+    if (role == 'staff' && status != 'approved') {
+      await FirebaseAuth.instance.signOut();
+      setState(() {
+        errorMessage =
+            'Your staff account is pending admin approval.';
+      });
+      return;
+    }
+
+    // ✅ SUCCESS → Navigate later (home / dashboard)
+  } on FirebaseAuthException catch (e) {
+    setState(() {
+      errorMessage = e.message;
+    });
+  } finally {
+    setState(() {
+      loading = false;
+    });
+  }
+}
+
+
+  Future<void> forgotPassword() async {
+    if (emailController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter your email first')),
+      );
+      return;
+    }
+
+    await FirebaseAuth.instance.sendPasswordResetEmail(
+      email: emailController.text.trim(),
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Password reset email sent')),
+    );
   }
 
   @override
@@ -47,21 +102,21 @@ class _LoginPageState extends State<LoginPage> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                /// SYSTEM NAME
+                /// 🔷 BIG SYSTEM TITLE
                 const Text(
-                  'PMMS G6',
+                  'Preacher Monitoring Management System',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 36,
+                    fontSize: 28,
                     fontWeight: FontWeight.bold,
                     color: Colors.blueAccent,
                   ),
                 ),
+
                 const SizedBox(height: 8),
 
-                /// SYSTEM DESCRIPTION
                 const Text(
-                  'Preacher Management System\n(MUIP)',
-                  textAlign: TextAlign.center,
+                  '(MUIP)',
                   style: TextStyle(
                     fontSize: 16,
                     color: Colors.black54,
@@ -70,7 +125,7 @@ class _LoginPageState extends State<LoginPage> {
 
                 const SizedBox(height: 40),
 
-                /// LOGIN CARD
+                /// 🔐 LOGIN CARD
                 Card(
                   elevation: 6,
                   shape: RoundedRectangleBorder(
@@ -106,19 +161,32 @@ class _LoginPageState extends State<LoginPage> {
 
                         const SizedBox(height: 16),
 
-                        /// PASSWORD
+                        /// PASSWORD (SHOW / HIDE)
                         TextField(
                           controller: passwordController,
-                          obscureText: true,
+                          obscureText: obscurePassword,
                           decoration: InputDecoration(
                             labelText: 'Password',
                             prefixIcon: const Icon(Icons.lock),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                obscurePassword
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  obscurePassword = !obscurePassword;
+                                });
+                              },
+                            ),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
                         ),
 
+                        /// ERROR
                         if (errorMessage != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -148,6 +216,32 @@ class _LoginPageState extends State<LoginPage> {
                                     'Login',
                                     style: TextStyle(fontSize: 16),
                                   ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 12),
+
+                        /// FORGOT PASSWORD
+                        TextButton(
+                          onPressed: forgotPassword,
+                          child: const Text('Forgot Password?'),
+                        ),
+
+                        const Divider(height: 30),
+
+                        /// REGISTER STAFF
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const StaffRegisterPage(),
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Register as Staff',
+                            style: TextStyle(fontSize: 15),
                           ),
                         ),
                       ],

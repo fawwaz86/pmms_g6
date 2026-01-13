@@ -7,35 +7,65 @@ import 'registrationDetailPage.dart';
 import 'editRegistrationPage.dart';
 
 class ListRegistrationPage extends StatelessWidget {
-  const ListRegistrationPage({Key? key}) : super(key: key);
+  final String mode; // staffApproval | preacherManagement
+
+  const ListRegistrationPage({
+    Key? key,
+    required this.mode,
+  }) : super(key: key);
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Preacher Registration')),
-
-      // ✅ BUTTON WITH TEXT
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.person_add),
-        label: const Text('Register Preacher'),
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddRegistrationPage()),
-          );
-        },
+      appBar: AppBar(
+        title: Text(
+          mode == 'staffApproval'
+              ? 'Approve Staff Registration'
+              : 'Preacher Registration',
+        ),
       ),
 
+      // ✅ STAFF ONLY → REGISTER PREACHER
+      floatingActionButton: mode == 'preacherManagement'
+          ? FloatingActionButton.extended(
+              icon: const Icon(Icons.person_add),
+              label: const Text('Register Preacher'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AddRegistrationPage(),
+                  ),
+                );
+              },
+            )
+          : null,
+
       body: StreamBuilder<QuerySnapshot>(
-        stream: RegistrationController.getAllRegistrations(),
+        stream: mode == 'staffApproval'
+            // ================= ADMIN =================
+            ? FirebaseFirestore.instance
+                .collection('users')
+                .where('role', isEqualTo: 'staff')
+                .where('status', isEqualTo: 'pending')
+                .snapshots()
+
+            // ================= STAFF =================
+            : RegistrationController.getAllRegistrations(),
+
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(
-              child: Text('No preacher registrations found'),
+            return Center(
+              child: Text(
+                mode == 'staffApproval'
+                    ? 'No pending staff approvals'
+                    : 'No preacher registrations found',
+              ),
             );
           }
 
@@ -50,49 +80,78 @@ class ListRegistrationPage extends StatelessWidget {
               return Card(
                 margin: const EdgeInsets.all(8),
                 child: ListTile(
-                  title: Text(data['preacherName'] ?? 'No name'),
-                  subtitle: Text(data['preacherEmail'] ?? ''),
-
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // 👁 VIEW
-                      IconButton(
-                        icon: const Icon(Icons.visibility),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ViewRegistrationPage(
-                                docId: doc.id,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      // ✏️ EDIT
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => EditRegistrationPage(
-                                docId: doc.id,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      // 🗑 DELETE
-                      IconButton(
-                        icon: const Icon(Icons.delete),
-                        onPressed: () => _confirmDelete(context, doc.id),
-                      ),
-                    ],
+                  title: Text(
+                    mode == 'staffApproval'
+                        ? data['name'] ?? 'No name'
+                        : data['preacherName'] ?? 'No name',
                   ),
+                  subtitle: Text(
+                    mode == 'staffApproval'
+                        ? data['email'] ?? ''
+                        : data['preacherEmail'] ?? '',
+                  ),
+
+                  // ================= ACTIONS =================
+                  trailing: mode == 'staffApproval'
+                      // -------- ADMIN APPROVE STAFF --------
+                      ? ElevatedButton(
+                          onPressed: () async {
+                            await FirebaseFirestore.instance
+                                .collection('users')
+                                .doc(doc.id)
+                                .update({'status': 'approved'});
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Staff approved successfully'),
+                              ),
+                            );
+                          },
+                          child: const Text('Approve'),
+                        )
+
+                      // -------- STAFF MANAGE PREACHER --------
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // VIEW
+                            IconButton(
+                              icon: const Icon(Icons.visibility),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ViewRegistrationPage(
+                                      docId: doc.id,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // EDIT
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => EditRegistrationPage(
+                                      docId: doc.id,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+
+                            // DELETE
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              onPressed: () =>
+                                  _confirmDelete(context, doc.id),
+                            ),
+                          ],
+                        ),
                 ),
               );
             },
@@ -101,6 +160,8 @@ class ListRegistrationPage extends StatelessWidget {
       ),
     );
   }
+
+  // ================= DELETE CONFIRM =================
 
   void _confirmDelete(BuildContext context, String docId) {
     showDialog(
