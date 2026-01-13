@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../Provider/KpiController.dart';
-import '../../Models/Kpi.dart';
+import '../../Domain/Kpi.dart';
 
 class ViewKpiPage extends StatefulWidget {
   // Use Firestore document ID

@@ -1,7 +1,7 @@
 // lib/Provider/KpiController.dart
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../Models/Kpi.dart';
+import '../Domain/Kpi.dart';
 
 class KpiController {
   final CollectionReference _db =
