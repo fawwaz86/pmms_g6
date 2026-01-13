@@ -40,7 +40,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
       final doc =
           await FirebaseFirestore.instance.collection('users').doc(uid).get();
       setState(() {
-        userRole = doc.data()?['role'];
+        userRole = doc.data()?['role']; // e.g., "staff", "preacher", "admin"
       });
     }
   }
@@ -123,7 +123,6 @@ class _ListKpiPageState extends State<ListKpiPage> {
                   title: Text(kpi.kpiTitle),
                   subtitle: Text(
                       'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
-                  // Show edit/delete buttons only for staff/admin
                   trailing: (userRole == 'staff' || userRole == 'admin')
                       ? Row(
                           mainAxisSize: MainAxisSize.min,
@@ -133,7 +132,6 @@ class _ListKpiPageState extends State<ListKpiPage> {
                               onPressed: () => _editKpi(kpi),
                               tooltip: 'Edit KPI',
                             ),
-                            const SizedBox(width: 8),
                             IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () => _deleteKpi(kpi.docId),
@@ -141,20 +139,19 @@ class _ListKpiPageState extends State<ListKpiPage> {
                             ),
                           ],
                         )
-                      : null,
-                  // Tap navigates to view page for everyone
-                  onTap: () => _viewKpi(kpi),
+                      : null, // No edit/delete for preacher
+                  onTap: () =>
+                      _viewKpi(kpi), // Tap navigates to view page for everyone
                 );
               },
             ),
-      // Add button visible only for staff/admin
       floatingActionButton: (userRole == 'staff' || userRole == 'admin')
           ? FloatingActionButton.extended(
               onPressed: _addKpi,
               icon: const Icon(Icons.add),
               label: const Text('Add KPI'),
             )
-          : null,
+          : null, // No add button for preacher
     );
   }
 }
