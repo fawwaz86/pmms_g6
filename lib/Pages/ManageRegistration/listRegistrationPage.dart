@@ -7,13 +7,18 @@ import 'registrationDetailPage.dart';
 import 'editRegistrationPage.dart';
 
 class ListRegistrationPage extends StatelessWidget {
-  final String mode; // staffApproval | preacherManagement
+  final String mode; // staffApproval | preacherManagement | preacherView
 
   const ListRegistrationPage({
     Key? key,
     required this.mode,
   }) : super(key: key);
 
+  String _formatDate(Timestamp? timestamp) {
+    if (timestamp == null) return 'Unknown date';
+    final date = timestamp.toDate();
+    return '${date.day}/${date.month}/${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +56,7 @@ class ListRegistrationPage extends StatelessWidget {
                 .where('status', isEqualTo: 'pending')
                 .snapshots()
 
-            // ================= STAFF =================
+            // ================= STAFF / ADMIN =================
             : RegistrationController.getAllRegistrations(),
 
         builder: (context, snapshot) {
@@ -77,18 +82,31 @@ class ListRegistrationPage extends StatelessWidget {
               final doc = docs[index];
               final data = doc.data() as Map<String, dynamic>;
 
+              final name = mode == 'staffApproval'
+                  ? data['name'] ?? 'No name'
+                  : data['preacherName'] ?? 'No name';
+
+              final email = mode == 'staffApproval'
+                  ? data['email'] ?? ''
+                  : data['preacherEmail'] ?? '';
+
+              final date = _formatDate(data['createdAt']);
+
               return Card(
                 margin: const EdgeInsets.all(8),
                 child: ListTile(
-                  title: Text(
-                    mode == 'staffApproval'
-                        ? data['name'] ?? 'No name'
-                        : data['preacherName'] ?? 'No name',
-                  ),
-                  subtitle: Text(
-                    mode == 'staffApproval'
-                        ? data['email'] ?? ''
-                        : data['preacherEmail'] ?? '',
+                  leading: const Icon(Icons.person),
+                  title: Text(name),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(email),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Registered on: $date',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
                   ),
 
                   // ================= ACTIONS =================
@@ -114,42 +132,37 @@ class ListRegistrationPage extends StatelessWidget {
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // VIEW
                             IconButton(
                               icon: const Icon(Icons.visibility),
                               onPressed: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => ViewRegistrationPage(
-                                      docId: doc.id,
-                                    ),
+                                    builder: (_) =>
+                                        ViewRegistrationPage(docId: doc.id),
                                   ),
                                 );
                               },
                             ),
-
-                            // EDIT
-                            IconButton(
-                              icon: const Icon(Icons.edit),
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => EditRegistrationPage(
-                                      docId: doc.id,
+                            if (mode == 'preacherManagement') ...[
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          EditRegistrationPage(docId: doc.id),
                                     ),
-                                  ),
-                                );
-                              },
-                            ),
-
-                            // DELETE
-                            IconButton(
-                              icon: const Icon(Icons.delete),
-                              onPressed: () =>
-                                  _confirmDelete(context, doc.id),
-                            ),
+                                  );
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                onPressed: () =>
+                                    _confirmDelete(context, doc.id),
+                              ),
+                            ],
                           ],
                         ),
                 ),

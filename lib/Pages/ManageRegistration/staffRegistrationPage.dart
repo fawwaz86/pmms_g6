@@ -22,54 +22,65 @@ class _StaffRegisterPageState extends State<StaffRegisterPage> {
   bool hideConfirmPassword = true;
   bool loading = false;
 
-  Future<void> registerStaff() async {
-    if (!_formKey.currentState!.validate()) return;
+Future<void> registerStaff() async {
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => loading = true);
+  setState(() => loading = true);
 
-    try {
-      // 1️⃣ CREATE AUTH ACCOUNT
-      final credential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: emailCtrl.text.trim(),
-        password: passwordCtrl.text.trim(),
-      );
+  try {
+    // 1️⃣ CREATE AUTH ACCOUNT
+    final credential =
+        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: emailCtrl.text.trim(),
+      password: passwordCtrl.text.trim(),
+    );
 
-      final uid = credential.user!.uid;
+    final uid = credential.user!.uid;
 
-      // 2️⃣ SAVE STAFF DATA (PENDING)
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'name': nameCtrl.text.trim(),
-        'staffId': staffIdCtrl.text.trim(),
-        'email': emailCtrl.text.trim(),
-        'role': 'staff',
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+    // 2️⃣ SAVE STAFF DATA
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'name': nameCtrl.text.trim(),
+      'staffId': staffIdCtrl.text.trim(),
+      'email': emailCtrl.text.trim(),
+      'role': 'staff',
+      'status': 'pending',
+      'createdAt': FieldValue.serverTimestamp(),
+    });
 
-      // 3️⃣ SIGN OUT (WAIT FOR APPROVAL)
-      await FirebaseAuth.instance.signOut();
-Navigator.pop(context); // back to login
+    // 3️⃣ SIGN OUT
+    await FirebaseAuth.instance.signOut();
 
+    if (!mounted) return;
 
-      // 4️⃣ SUCCESS MESSAGE
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Registration successful. Please wait for admin approval.',
-          ),
+    // 4️⃣ SHOW SUCCESS MESSAGE
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Registration successful! Please wait for admin approval.',
         ),
-      );
+        backgroundColor: Colors.green,
+      ),
+    );
 
-      Navigator.pop(context);
-    } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? 'Registration failed')),
-      );
-    } finally {
+    // 5️⃣ GO BACK TO LOGIN 
+    Navigator.pushReplacementNamed(context, '/login');
+
+  } on FirebaseAuthException catch (e) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(e.message ?? 'Registration failed'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  } finally {
+    if (mounted) {
       setState(() => loading = false);
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

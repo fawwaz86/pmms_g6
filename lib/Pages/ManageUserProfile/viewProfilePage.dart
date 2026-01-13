@@ -1,130 +1,92 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ViewProfilePage extends StatelessWidget {
-  final String userId;
+import 'editProfilePage.dart';
 
-  const ViewProfilePage({
-    super.key,
-    required this.userId,
-  });
+class ViewProfilePage extends StatelessWidget {
+  const ViewProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Profile'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.lock),
+            tooltip: 'Change Password',
+            onPressed: () async {
+              final email = FirebaseAuth.instance.currentUser!.email;
+              if (email != null) {
+                await FirebaseAuth.instance
+                    .sendPasswordResetEmail(email: email);
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Password reset email sent'),
+                  ),
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance
-            .collection('users')
-            .doc(userId)
-            .get(),
+        future:
+            FirebaseFirestore.instance.collection('users').doc(uid).get(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Profile not found'));
-          }
-
           final data = snapshot.data!.data() as Map<String, dynamic>;
+          final role = data['role'];
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _profileHeader(context, data),
-                const SizedBox(height: 24),
-                _infoCard('Full Name', data['name']),
-                _infoCard('Email', data['email']),
-                _infoCard('Role', data['role']),
-                _infoCard('Phone Number', data['phone']),
-                _infoCard('Address', data['address']),
-                _infoCard('Mosque / Institution', data['institution']),
-                _infoCard('Registration Date',
-                    _formatDate(data['createdAt'])),
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _info('Full Name', data['name']),
+              _info('Email', data['email']),
+              _info('Role', role),
+
+              if (role == 'preacher') ...[
+                _info('Status', data['status']),
               ],
-            ),
+
+              const SizedBox(height: 24),
+
+              // ✏️ EDIT BUTTON (PREACHER ONLY)
+              if (role == 'preacher')
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.edit),
+                  label: const Text('Edit Profile'),
+                  onPressed: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => const EditProfilePage(),
+    ),
+  );
+},
+
+                ),
+            ],
           );
         },
       ),
     );
   }
 
-  // ================= UI COMPONENTS =================
-
-  Widget _profileHeader(BuildContext context, Map<String, dynamic> data) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 50,
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          child: const Icon(
-            Icons.person,
-            size: 60,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          data['name'] ?? '',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          'Preacher',
-          style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[600],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _infoCard(String label, dynamic value) {
+  Widget _info(String label, dynamic value) {
     return Card(
-      elevation: 2,
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              flex: 3,
-              child: Text(
-                label,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey,
-                ),
-              ),
-            ),
-            Expanded(
-              flex: 5,
-              child: Text(
-                value == null || value.toString().isEmpty
-                    ? '-'
-                    : value.toString(),
-                style: const TextStyle(fontSize: 16),
-              ),
-            ),
-          ],
-        ),
+      child: ListTile(
+        title: Text(label),
+        subtitle: Text(value?.toString() ?? '-'),
       ),
     );
-  }
-
-  String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return '-';
-
-    final date = timestamp.toDate();
-    return '${date.day}/${date.month}/${date.year}';
   }
 }
