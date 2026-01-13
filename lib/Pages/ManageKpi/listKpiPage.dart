@@ -16,16 +16,16 @@ class ListKpiPage extends StatefulWidget {
 class _ListKpiPageState extends State<ListKpiPage> {
   final KpiController _controller = KpiController();
   List<Kpi> kpiList = [];
-  String? userRole; // To store current user's role
+  String? userRole; // Current user's role (staff/admin/preacher)
 
   @override
   void initState() {
     super.initState();
-    _loadKpiList();
-    _loadUserRole();
+    _loadKpiList(); // Load KPI data
+    _loadUserRole(); // Load user role from Firestore
   }
 
-  // Load all KPI records
+  /// Load all KPI records
   void _loadKpiList() async {
     final list = await _controller.getAllKpi();
     setState(() {
@@ -33,7 +33,19 @@ class _ListKpiPageState extends State<ListKpiPage> {
     });
   }
 
-  // Delete KPI using document ID
+  /// Load current user's role from Firestore
+  void _loadUserRole() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      setState(() {
+        userRole = doc.data()?['role'];
+      });
+    }
+  }
+
+  /// Delete KPI using document ID
   void _deleteKpi(String docId) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -60,7 +72,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
     }
   }
 
-  // Edit KPI
+  /// Edit KPI
   void _editKpi(Kpi kpi) async {
     await Navigator.push(
       context,
@@ -74,7 +86,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
     _loadKpiList();
   }
 
-  // View KPI
+  /// View KPI
   void _viewKpi(Kpi kpi) {
     Navigator.push(
       context,
@@ -86,7 +98,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
     );
   }
 
-  // Add KPI
+  /// Add KPI
   void _addKpi() async {
     await Navigator.push(
       context,
@@ -110,32 +122,37 @@ class _ListKpiPageState extends State<ListKpiPage> {
                 return ListTile(
                   title: Text(kpi.kpiTitle),
                   subtitle: Text(
-                    'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteKpi(kpi.docId),
-                  ),
-                  onTap: () async {
-                    // Optional: Edit KPI on tap
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FormKpiPage(kpiData: kpi.toMap()),
-                      ),
-                    );
-                    _loadKpiList();
-                  },
+                      'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
+                  // Show edit/delete only for staff/admin
+                  trailing: (userRole == 'staff' || userRole == 'admin')
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _editKpi(kpi),
+                              tooltip: 'Edit KPI',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteKpi(kpi.docId),
+                              tooltip: 'Delete KPI',
+                            ),
+                          ],
+                        )
+                      : null, // Preacher cannot edit/delete
+                  onTap: () => _viewKpi(kpi), // Everyone can view
                 );
               },
             ),
+      // Floating button visible only for staff/admin
       floatingActionButton: (userRole == 'staff' || userRole == 'admin')
           ? FloatingActionButton.extended(
               onPressed: _addKpi,
               icon: const Icon(Icons.add),
               label: const Text('Add KPI'),
             )
-          : null, // No add button for preacher
+          : null, // Preacher sees no add button
     );
   }
 }
