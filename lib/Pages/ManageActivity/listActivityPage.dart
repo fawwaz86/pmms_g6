@@ -152,7 +152,7 @@ class _ListActivityPageState extends State<ListActivityPage> {
           _buildSearchAndFilter(),
           Expanded(
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              // Using static methods (like your friend)
+              
               stream: userRole == 'preacher'
                   ? ActivityController.getActivitiesByPreacher(userId!)
                   : ActivityController.getAllActivities(),
@@ -320,7 +320,7 @@ class _ListActivityPageState extends State<ListActivityPage> {
                   const Icon(Icons.calendar_today, size: 16, color: Colors.grey),
                   const SizedBox(width: 4),
                   Text(
-                    _formatDate(activity.scheduledDate),
+                    _formatDateTime(activity.scheduledDate),  // ✅ Changed to show time
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ],
@@ -415,8 +415,12 @@ class _ListActivityPageState extends State<ListActivityPage> {
     }
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.day}/${date.month}/${date.year}';
+  String _formatDateTime(DateTime date) {
+    final hour = date.hour == 0 ? 12 : (date.hour > 12 ? date.hour - 12 : date.hour);
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = date.hour >= 12 ? 'PM' : 'AM';
+    
+    return '${date.day}/${date.month}/${date.year} at $hour:$minute $period';
   }
 
   void _navigateToAddActivity() {

@@ -1,5 +1,3 @@
-// lib/Provider/ActivityController.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../Models/activity.dart';
@@ -14,46 +12,52 @@ class ActivityController {
 
   // 🔹 GET USER ROLE
   static Future<String?> getUserRole() async {
-    if (currentUser == null) return null;
+  if (currentUser == null) return null;
 
-    try {
-      // Check if user is staff
-      final staffDoc = await _db.collection('users').doc(currentUser!.uid).get();
-      if (staffDoc.exists) return 'staff';
+  try {
+    final userDoc =
+        await _db.collection('users').doc(currentUser!.uid).get();
 
-      // Check if user is preacher - FIXED: registrations (plural)
-      final preacherDoc = await _db.collection('registrations').doc(currentUser!.uid).get();
-      if (preacherDoc.exists) return 'preacher';
+    if (!userDoc.exists) return null;
 
-      return null;
-    } catch (e) {
-      debugPrint('Error getting user role: $e');
-      return null;
-    }
+    return userDoc.data()?['role'];
+  } catch (e) {
+    debugPrint('Error getting user role: $e');
+    return null;
   }
+}
 
   // 🔹 GET USER DETAILS
   static Future<Map<String, dynamic>?> getUserDetails() async {
-    if (currentUser == null) return null;
+  if (currentUser == null) return null;
 
-    try {
-      final role = await getUserRole();
-      
-      if (role == 'staff') {
-        final doc = await _db.collection('users').doc(currentUser!.uid).get();
-        return doc.data();
-      } else if (role == 'preacher') {
-        // FIXED: registrations (plural)
-        final doc = await _db.collection('registrations').doc(currentUser!.uid).get();
-        return doc.data();
-      }
+  try {
+    final role = await getUserRole();
 
-      return null;
-    } catch (e) {
-      debugPrint('Error getting user details: $e');
-      return null;
+    if (role == 'staff' || role == 'admin') {
+      final doc =
+          await _db.collection('users').doc(currentUser!.uid).get();
+      return doc.data();
     }
+
+    if (role == 'preacher') {
+      final snapshot = await _db
+          .collection('registrations')
+          .where('userId', isEqualTo: currentUser!.uid)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.data();
+      }
+    }
+
+    return null;
+  } catch (e) {
+    debugPrint('Error getting user details: $e');
+    return null;
   }
+}
 
   // 🔹 CREATE ACTIVITY
   static Future<String?> addActivity(Activity activity) async {
@@ -140,30 +144,33 @@ class ActivityController {
     }
   }
 
-  // 🔹 GET ALL PREACHERS - FIXED: registrations (plural)
   static Future<List<Map<String, String>>> getAllPreachers() async {
-    try {
-      // FIXED: registrations (plural)
-      final snapshot = await _db.collection('registrations').get();
-      
-      final List<Map<String, String>> preachers = [];
-      
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
+  try {
+    final snapshot = await _db
+        .collection('registrations')
+        .get();  // ✅ Remove the role filter since registrations don't have 'role'
+
+    final List<Map<String, String>> preachers = [];
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+
+      // ✅ Changed 'userId' to 'authUid'
+      if (data['authUid'] != null && data['preacherName'] != null) {
         preachers.add({
-          'id': doc.id,
-          'name': data['preacherName']?.toString() ?? 'Unknown',
+          'id': data['authUid'],  // ✅ Use authUid instead of userId
+          'name': data['preacherName'],
         });
       }
-      
-      debugPrint('Found ${preachers.length} preachers: $preachers');
-      return preachers;
-    } catch (e) {
-      debugPrint('Error getting preachers: $e');
-      return [];
     }
-  }
 
+    debugPrint('Loaded preachers: $preachers');
+    return preachers;
+  } catch (e) {
+    debugPrint('Error getting preachers: $e');
+    return [];
+  }
+}
   // 🔹 CONVERT QuerySnapshot TO List<Activity>
   static List<Activity> convertToActivityList(QuerySnapshot snapshot) {
     final List<Activity> activities = [];

@@ -22,6 +22,7 @@ class _AddActivityPageState extends State<AddActivityPage> {
   final _notesController = TextEditingController();
 
   DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;  // ✅ Added time variable
   String? _selectedPreacherId;
   bool _isSaving = false;
   bool _isLoadingPreachers = true;
@@ -126,6 +127,30 @@ class _AddActivityPageState extends State<AddActivityPage> {
     }
   }
 
+  // ✅ Added time picker method
+  Future<void> _selectTime() async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+      });
+    }
+  }
+
   Future<void> _saveActivity() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -134,6 +159,14 @@ class _AddActivityPageState extends State<AddActivityPage> {
     if (_selectedDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a scheduled date')),
+      );
+      return;
+    }
+
+    // ✅ Added time validation
+    if (_selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a time')),
       );
       return;
     }
@@ -154,12 +187,21 @@ class _AddActivityPageState extends State<AddActivityPage> {
         (p) => p['id'] == _selectedPreacherId,
       );
 
+      // ✅ Combine date and time into DateTime
+      final scheduledDateTime = DateTime(
+        _selectedDate!.year,
+        _selectedDate!.month,
+        _selectedDate!.day,
+        _selectedTime!.hour,
+        _selectedTime!.minute,
+      );
+
       final newActivity = Activity(
         id: '', // Firebase will generate this
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         location: _locationController.text.trim(),
-        scheduledDate: _selectedDate!,
+        scheduledDate: scheduledDateTime,  // ✅ Now includes time
         assignedPreacherId: _selectedPreacherId!,
         assignedPreacherName: preacher['name']!,
         status: ActivityStatus.pending,
@@ -300,6 +342,27 @@ class _AddActivityPageState extends State<AddActivityPage> {
                             : '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}',
                         style: TextStyle(
                           color: _selectedDate == null ? Colors.grey : Colors.black,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ✅ Time Picker (NEW)
+                  InkWell(
+                    onTap: _selectTime,
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Scheduled Time *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.access_time),
+                      ),
+                      child: Text(
+                        _selectedTime == null
+                            ? 'Select time'
+                            : _selectedTime!.format(context),
+                        style: TextStyle(
+                          color: _selectedTime == null ? Colors.grey : Colors.black,
                         ),
                       ),
                     ),
