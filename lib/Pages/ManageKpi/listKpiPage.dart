@@ -129,14 +129,13 @@ class _ListKpiPageState extends State<ListKpiPage> {
                 );
               },
             ),
-      // Add button visible only for staff/admin
       floatingActionButton: (userRole == 'staff' || userRole == 'admin')
           ? FloatingActionButton.extended(
               onPressed: _addKpi,
               icon: const Icon(Icons.add),
               label: const Text('Add KPI'),
             )
-          : null,
+          : null, // No add button for preacher
     );
   }
 }
