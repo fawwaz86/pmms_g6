@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../Models/activity.dart';
+import '../../Domain/activity.dart';
 import '../../Provider/ActivityController.dart';
 
 class AddActivityPage extends StatefulWidget {
