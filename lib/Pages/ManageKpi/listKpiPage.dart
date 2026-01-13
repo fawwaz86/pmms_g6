@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../Models/Kpi.dart';
 import '../../Provider/KpiController.dart';
-import 'formKpiPage.dart'; // Import your Form page
+import 'formKpiPage.dart';
+import 'viewKpiPage.dart';
 
 class ListKpiPage extends StatefulWidget {
   const ListKpiPage({super.key});
@@ -27,7 +28,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
     });
   }
 
-  // Delete KPI using document ID
+  // Delete KPI
   void _deleteKpi(String docId) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -54,15 +55,41 @@ class _ListKpiPageState extends State<ListKpiPage> {
     }
   }
 
-  // Navigate to FormKpiPage to add a new KPI
+  // Edit KPI
+  void _editKpi(Kpi kpi) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FormKpiPage(
+          kpiData: kpi.toMap(),
+          docId: kpi.docId, // <-- Add this line
+        ),
+      ),
+    );
+    _loadKpiList();
+  }
+
+  // View KPI
+  void _viewKpi(Kpi kpi) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ViewKpiPage(
+          docId: kpi.docId, // ✅ pass the required docId
+        ),
+      ),
+    );
+  }
+
+  // Add KPI
   void _addKpi() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const FormKpiPage(), // No data = Add mode
+        builder: (_) => const FormKpiPage(),
       ),
     );
-    _loadKpiList(); // Refresh list after returning
+    _loadKpiList();
   }
 
   @override
@@ -78,22 +105,24 @@ class _ListKpiPageState extends State<ListKpiPage> {
                 return ListTile(
                   title: Text(kpi.kpiTitle),
                   subtitle: Text(
-                    'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteKpi(kpi.docId),
-                  ),
-                  onTap: () async {
-                    // Optional: Edit KPI on tap
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FormKpiPage(kpiData: kpi.toMap()),
+                      'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min, // Shrinks the row
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () => _editKpi(kpi),
+                        tooltip: 'Edit KPI',
                       ),
-                    );
-                    _loadKpiList();
-                  },
+                      const SizedBox(width: 8), // Spacing between icons
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deleteKpi(kpi.docId),
+                        tooltip: 'Delete KPI',
+                      ),
+                    ],
+                  ),
+                  onTap: () => _viewKpi(kpi), // Tap navigates to view page
                 );
               },
             ),
