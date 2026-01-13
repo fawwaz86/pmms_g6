@@ -18,6 +18,7 @@ class _HomePageState extends State<HomePage> {
   String userRole = '';
   String userName = '';
   String userId = '';
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -26,26 +27,102 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadUser() async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    try {
+      final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
+      // Try to get user from 'users' collection (staff)
+      var doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
 
-    setState(() {
-      userRole = doc['role']; // 'staff' or 'preacher'
-      userName = doc['name'];
-      userId = uid;
-    });
+      if (doc.exists) {
+        setState(() {
+          userRole = doc['role'] ?? 'staff';
+          userName = doc['name'] ?? 'User';
+          userId = uid;
+          isLoading = false;
+        });
+        return;
+      }
+
+      // If not found in 'users', try 'registration' collection (preacher)
+      doc = await FirebaseFirestore.instance
+          .collection('registration')
+          .doc(uid)
+          .get();
+
+      if (doc.exists) {
+        setState(() {
+          userRole = 'preacher';
+          userName = doc['preacherName'] ?? 'Preacher';
+          userId = uid;
+          isLoading = false;
+        });
+        return;
+      }
+
+      // If user not found in either collection
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading user: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     // Loading state
-    if (userRole.isEmpty) {
+    if (isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Error state - user not found
+    if (userRole.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Error'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () => FirebaseAuth.instance.signOut(),
+            )
+          ],
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 80,
+                color: Colors.red,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'User not found in database',
+                style: TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'UID: $userId',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => FirebaseAuth.instance.signOut(),
+                icon: const Icon(Icons.logout),
+                label: const Text('Logout'),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -126,13 +203,11 @@ class _HomePageState extends State<HomePage> {
                     icon: Icons.event_note,
                     color: Colors.blue,
                     onTap: () {
+                      // ✅ UPDATED - No parameters needed!
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ListActivityPage(
-                            userRole: userRole,
-                            userId: userId,
-                          ),
+                          builder: (_) => const ListActivityPage(),
                         ),
                       );
                     },
