@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:pmms_g6/Provider/RegistrationController.dart';
 
 class AddRegistrationPage extends StatefulWidget {
@@ -23,7 +26,9 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
   String _qualification = 'Bachelor Degree';
   DateTime? _dob;
 
-  final List<String> _nationalities = [
+  bool _loading = false;
+
+  final _nationalities = [
     'Malaysian',
     'Indonesian',
     'Thai',
@@ -31,7 +36,7 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
     'Other',
   ];
 
-  final List<String> _qualifications = [
+  final _qualifications = [
     'Diploma',
     'Bachelor Degree',
     'Master Degree',
@@ -53,77 +58,37 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Register Preacher'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Register Preacher')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              _buildField(
-                controller: _nameController,
-                label: 'Preacher Name',
-                hint: 'Full name',
-              ),
-              _buildField(
-                controller: _icController,
-                label: 'IC / Passport',
-                hint: '900101-10-1234',
-              ),
-              _buildDropdown(
-                label: 'Gender',
-                value: _gender,
-                items: const ['Male', 'Female'],
-                onChanged: (v) => setState(() => _gender = v),
-              ),
-              _buildDatePicker(),
-              _buildDropdown(
-                label: 'Nationality',
-                value: _nationality,
-                items: _nationalities,
-                onChanged: (v) => setState(() => _nationality = v),
-              ),
-              _buildField(
-                controller: _phoneController,
-                label: 'Phone Number',
-                hint: '0123456789',
-                keyboardType: TextInputType.phone,
-              ),
-              _buildField(
-                controller: _emailController,
-                label: 'Email',
-                hint: 'email@example.com',
-                keyboardType: TextInputType.emailAddress,
-              ),
-              _buildDropdown(
-                label: 'Qualification',
-                value: _qualification,
-                items: _qualifications,
-                onChanged: (v) => setState(() => _qualification = v),
-              ),
-              _buildField(
-                controller: _institutionController,
-                label: 'Institution',
-                hint: 'University / College',
-              ),
-              _buildField(
-                controller: _fieldController,
-                label: 'Preaching Field',
-                hint: 'Aqidah, Fiqh, Dakwah',
-              ),
+              _field(_nameController, 'Preacher Name'),
+              _field(_icController, 'IC / Passport'),
+              _dropdown('Gender', _gender, ['Male', 'Female'],
+                  (v) => setState(() => _gender = v)),
+              _datePicker(),
+              _dropdown('Nationality', _nationality, _nationalities,
+                  (v) => setState(() => _nationality = v)),
+              _field(_phoneController, 'Phone Number',
+                  keyboard: TextInputType.phone),
+              _field(_emailController, 'Email',
+                  keyboard: TextInputType.emailAddress),
+              _dropdown('Qualification', _qualification, _qualifications,
+                  (v) => setState(() => _qualification = v)),
+              _field(_institutionController, 'Institution'),
+              _field(_fieldController, 'Preaching Field'),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: ElevatedButton(
-                  onPressed: submit,
-                  child: const Text(
-                    'Submit Registration',
-                    style: TextStyle(fontSize: 16),
-                  ),
+                  onPressed: _loading ? null : _submit,
+                  child: _loading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text('Submit Registration'),
                 ),
               ),
             ],
@@ -133,36 +98,33 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
     );
   }
 
-  // ---------------- Widgets ----------------
+  // ================= UI HELPERS =================
 
-  Widget _buildField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    TextInputType keyboardType = TextInputType.text,
+  Widget _field(
+    TextEditingController c,
+    String label, {
+    TextInputType keyboard = TextInputType.text,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: TextFormField(
-        controller: controller,
-        keyboardType: keyboardType,
-        validator: (v) =>
-            v == null || v.isEmpty ? 'This field is required' : null,
+        controller: c,
+        keyboardType: keyboard,
+        validator: (v) => v == null || v.isEmpty ? 'Required' : null,
         decoration: InputDecoration(
           labelText: label,
-          hintText: hint,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );
   }
 
-  Widget _buildDropdown({
-    required String label,
-    required String value,
-    required List<String> items,
-    required Function(String) onChanged,
-  }) {
+  Widget _dropdown(
+    String label,
+    String value,
+    List<String> items,
+    Function(String) onChanged,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: DropdownButtonFormField<String>(
@@ -171,14 +133,15 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        items:
-            items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+        items: items
+            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+            .toList(),
         onChanged: (v) => onChanged(v!),
       ),
     );
   }
 
-  Widget _buildDatePicker() {
+  Widget _datePicker() {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: InkWell(
@@ -198,7 +161,7 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
     );
   }
 
-  // ---------------- Logic ----------------
+  // ================= LOGIC =================
 
   Future<void> _pickDate() async {
     final date = await showDatePicker(
@@ -210,10 +173,32 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
     if (date != null) setState(() => _dob = date);
   }
 
-  Future<void> submit() async {
-  if (_formKey.currentState!.validate() && _dob != null) {
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate() || _dob == null) return;
+
+    setState(() => _loading = true);
+
     try {
+      // 🔐 SECONDARY AUTH (DO NOT LOG OUT STAFF)
+      final secondaryApp = await Firebase.initializeApp(
+        name: 'Secondary',
+        options: Firebase.app().options,
+      );
+
+      final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+
+      // CREATE PREACHER AUTH ACCOUNT
+      final userCred =
+          await secondaryAuth.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: 'Temp@12345',
+      );
+
+      final uid = userCred.user!.uid;
+
+      // SAVE REGISTRATION (OPTIONAL – FOR ADMIN RECORD)
       await RegistrationController.addRegistration({
+        'authUid': uid,
         'preacherName': _nameController.text,
         'preacherIC': _icController.text,
         'preacherGender': _gender,
@@ -224,20 +209,53 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
         'qualification': _qualification,
         'institutionName': _institutionController.text,
         'preacherField': _fieldController.text,
+        'status': 'active',
+        'createdAt': FieldValue.serverTimestamp(),
       });
 
-      debugPrint('✅ Registration submitted successfully');
+      // 🔑 SAVE FULL PROFILE INTO USERS COLLECTION
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'name': _nameController.text,
+        'email': _emailController.text,
+        'role': 'preacher',
+        'status': 'active',
 
-      Navigator.pop(context);
-    } catch (e) {
-      debugPrint('❌ ERROR submitting registration: $e');
+        'preacherIC': _icController.text,
+        'preacherGender': _gender,
+        'preacherDOB': _dob,
+        'preacherNationality': _nationality,
+        'preacherNumber': _phoneController.text,
+        'qualification': _qualification,
+        'institutionName': _institutionController.text,
+        'preacherField': _fieldController.text,
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      // SEND RESET PASSWORD EMAIL
+      await secondaryAuth.sendPasswordResetEmail(
+        email: _emailController.text.trim(),
       );
+
+      await secondaryAuth.signOut();
+      await secondaryApp.delete();
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Preacher registered. Password reset email sent.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    } finally {
+      setState(() => _loading = false);
     }
-  } else {
-    debugPrint('❌ Form invalid or DOB not selected');
-  }
   }
 }

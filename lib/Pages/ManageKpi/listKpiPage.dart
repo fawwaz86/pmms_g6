@@ -1,51 +1,158 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../Domain/Kpi.dart';
+import '../../Provider/KpiController.dart';
+import 'formKpiPage.dart';
+import 'viewKpiPage.dart';
 
-class ListKpiPage extends StatelessWidget {
+class ListKpiPage extends StatefulWidget {
   const ListKpiPage({super.key});
 
+  @override
+  State<ListKpiPage> createState() => _ListKpiPageState();
+}
 
-// Test KPI for branching
-// Test to merge this branch with main 
-// Check for pull, merege conflict, etc.
+class _ListKpiPageState extends State<ListKpiPage> {
+  final KpiController _controller = KpiController();
+  List<Kpi> kpiList = [];
+  String? userRole; // Current user's role (staff/admin/preacher)
+
+  @override
+  void initState() {
+    super.initState();
+    _loadKpiList(); // Load KPI data
+    _loadUserRole(); // Load user role from Firestore
+  }
+
+  /// Load all KPI records
+  void _loadKpiList() async {
+    final list = await _controller.getAllKpi();
+    setState(() {
+      kpiList = list;
+    });
+  }
+
+  /// Load current user's role from Firestore
+  void _loadUserRole() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      setState(() {
+        userRole = doc.data()?['role'];
+      });
+    }
+  }
+
+  /// Delete KPI using document ID
+  void _deleteKpi(String docId) async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Confirm Deletion"),
+        content: const Text("Are you sure you want to delete this KPI record?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      bool success = await _controller.deleteKpi(docId);
+      if (success) _loadKpiList(); // Refresh list
+    }
+  }
+
+  /// Edit KPI
+  void _editKpi(Kpi kpi) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FormKpiPage(
+          kpiData: kpi.toMap(),
+          docId: kpi.docId, // Pass docId to allow update
+        ),
+      ),
+    );
+    _loadKpiList();
+  }
+
+  /// View KPI
+  void _viewKpi(Kpi kpi) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ViewKpiPage(
+          docId: kpi.docId, // View-only page
+        ),
+      ),
+    );
+  }
+
+  /// Add KPI
+  void _addKpi() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const FormKpiPage(),
+      ),
+    );
+    _loadKpiList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Dummy KPI data
-    final List<Map<String, String>> kpiList = [
-      {"title": "Increase Sales", "target": "10%"},
-      {"title": "Customer Feedback", "target": "90% positive"},
-      {"title": "Reduce Complaints", "target": "5 per month"},
-    ];
-
     return Scaffold(
-      appBar: AppBar(
-        // AppBar for ListKpiPage
-        title: const Text('List of KPIs'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: ListView.builder(
-          itemCount: kpiList.length,
-          itemBuilder: (context, index) {
-            final kpi = kpiList[index];
-            return Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              child: ListTile(
-                title: Text(kpi["title"] ?? ""),
-                subtitle: Text("Target: ${kpi["target"]}"),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () {
-                  // Here you can navigate to KPI details page later
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Tapped on ${kpi["title"]}')),
-                  );
-                },
-              ),
-            );
-          },
-        ),
-      ),
+      appBar: AppBar(title: const Text('KPI List')),
+      body: kpiList.isEmpty
+          ? const Center(child: Text('No KPI records found'))
+          : ListView.builder(
+              itemCount: kpiList.length,
+              itemBuilder: (context, index) {
+                final kpi = kpiList[index];
+                return ListTile(
+                  title: Text(kpi.kpiTitle),
+                  subtitle: Text(
+                      'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
+                  // Show edit/delete only for staff/admin
+                  trailing: (userRole == 'staff' || userRole == 'admin')
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _editKpi(kpi),
+                              tooltip: 'Edit KPI',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteKpi(kpi.docId),
+                              tooltip: 'Delete KPI',
+                            ),
+                          ],
+                        )
+                      : null, // Preacher cannot edit/delete
+                  onTap: () => _viewKpi(kpi), // Everyone can view
+                );
+              },
+            ),
+      // Floating button visible only for staff/admin
+      floatingActionButton: (userRole == 'staff' || userRole == 'admin')
+          ? FloatingActionButton.extended(
+              onPressed: _addKpi,
+              icon: const Icon(Icons.add),
+              label: const Text('Add KPI'),
+            )
+          : null, // Preacher sees no add button
     );
   }
 }
