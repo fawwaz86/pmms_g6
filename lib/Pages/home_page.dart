@@ -19,7 +19,6 @@ class _HomePageState extends State<HomePage> {
   String userRole = '';
   String userName = '';
   String userId = '';
-  bool isLoading = true;
 
   @override
   void initState() {
@@ -28,50 +27,26 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadUser() async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
+    final uid = FirebaseAuth.instance.currentUser!.uid;
 
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .get();
 
-      if (!doc.exists) {
-        throw Exception('User record not found');
-      }
-
-      if (!mounted) return;
-
-      setState(() {
-        userRole = doc['role'];
-        userName = doc['name'];
-        userId = uid;
-        isLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading user: $e');
-
-      if (!mounted) return;
-
-      setState(() {
-        isLoading = false;
-      });
-    }
+    setState(() {
+      userRole = doc['role']; // 'staff' or 'preacher'
+      userName = doc['name'];
+      userId = uid;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    // 🔄 Loading
-    if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    // ❌ Unauthorized / broken user
+    // Loading state
     if (userRole.isEmpty) {
       return const Scaffold(
-        body: Center(child: Text('Unauthorized access')),
+        body: Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -150,18 +125,17 @@ class _HomePageState extends State<HomePage> {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  // ACTIVITIES
+                  // ACTIVITIES - FIXED: No parameters needed
                   _buildModuleCard(
                     context,
                     title: 'Activities',
                     icon: Icons.event_note,
                     color: Colors.blue,
                     onTap: () {
-                      // ✅ UPDATED - No parameters needed!
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ListActivityPage(),
+                          builder: (_) => const ListActivityPage(), // ✅ FIXED
                         ),
                       );
                     },

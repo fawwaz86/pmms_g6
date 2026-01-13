@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../Models/activity.dart';
+import '../../Domain/activity.dart';
 import '../../Provider/ActivityController.dart';
 
 class ActivityDetailPage extends StatefulWidget {

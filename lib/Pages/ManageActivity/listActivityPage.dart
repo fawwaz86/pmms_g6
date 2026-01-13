@@ -1,3 +1,5 @@
+// lib/Pages/ManageActivity/listActivityPage.dart
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../Models/activity.dart';
@@ -29,31 +31,69 @@ class _ListActivityPageState extends State<ListActivityPage> {
   }
 
   Future<void> _initializeUser() async {
-    setState(() => isLoading = true);
+  setState(() => isLoading = true);
 
-    try {
-      userRole = await ActivityController.getUserRole();
-      userId = ActivityController.currentUser?.uid;
+  try {
+    // DEBUG: Print current user info
+    final currentUser = ActivityController.currentUser;
+    print('🔍 DEBUG - Current User Auth UID: ${currentUser?.uid}');
+    print('🔍 DEBUG - Current User Email: ${currentUser?.email}');
+    
+    // DEBUG: Check what's in the database
+    final staffCheck = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(currentUser!.uid)
+        .get();
+    print('🔍 DEBUG - Is in users collection? ${staffCheck.exists}');
+    if (staffCheck.exists) {
+      print('🔍 DEBUG - Users doc data: ${staffCheck.data()}');
+    }
+    
+    final preacherCheck = await FirebaseFirestore.instance
+        .collection('registrations')
+        .where('userId', isEqualTo: currentUser.uid)
+        .get();
+    print('🔍 DEBUG - Preacher query results: ${preacherCheck.docs.length}');
+    if (preacherCheck.docs.isNotEmpty) {
+      print('🔍 DEBUG - Registrations doc data: ${preacherCheck.docs.first.data()}');
+    }
+    
+    // Also check by email as backup
+    final preacherByEmail = await FirebaseFirestore.instance
+        .collection('registrations')
+        .where('preacherEmail', isEqualTo: currentUser.email)
+        .get();
+    print('🔍 DEBUG - Preacher by email results: ${preacherByEmail.docs.length}');
+    if (preacherByEmail.docs.isNotEmpty) {
+      print('🔍 DEBUG - Found by email: ${preacherByEmail.docs.first.data()}');
+    }
 
-      final userDetails = await ActivityController.getUserDetails();
-      if (userDetails != null) {
-        if (userRole == 'staff') {
-          userName = userDetails['name'] ?? userDetails['email'];
-        } else if (userRole == 'preacher') {
-          userName = userDetails['preacherName'] ?? userDetails['preacherEmail'];
-        }
-      }
+    // Original code continues...
+    userRole = await ActivityController.getUserRole();
+    print('🔍 DEBUG - Detected Role: $userRole');
+    
+    userId = ActivityController.currentUser?.uid;
 
-      setState(() => isLoading = false);
-    } catch (e) {
-      setState(() => isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading user data: $e')),
-        );
+    final userDetails = await ActivityController.getUserDetails();
+    if (userDetails != null) {
+      if (userRole == 'staff') {
+        userName = userDetails['name'] ?? userDetails['email'];
+      } else if (userRole == 'preacher') {
+        userName = userDetails['preacherName'] ?? userDetails['preacherEmail'];
       }
     }
+
+    setState(() => isLoading = false);
+  } catch (e) {
+    print('❌ ERROR in _initializeUser: $e');
+    setState(() => isLoading = false);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading user data: $e')),
+      );
+    }
   }
+}
 
   void _applyFilters(List<Activity> activities) {
     filteredActivities = activities.where((activity) {

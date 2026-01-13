@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../Models/activity.dart';
+import '../Domain/activity.dart';
 
 class ActivityController {
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -10,7 +10,7 @@ class ActivityController {
   // 🔹 GET CURRENT USER
   static User? get currentUser => _auth.currentUser;
 
-  // 🔹 GET USER ROLE
+  // 🔹 GET USER ROLE - PROPERLY FIXED
   static Future<String?> getUserRole() async {
   if (currentUser == null) return null;
 
@@ -27,7 +27,7 @@ class ActivityController {
   }
 }
 
-  // 🔹 GET USER DETAILS
+  // 🔹 GET USER DETAILS - PROPERLY FIXED
   static Future<Map<String, dynamic>?> getUserDetails() async {
   if (currentUser == null) return null;
 
@@ -81,11 +81,31 @@ class ActivityController {
         .snapshots();
   }
 
-  // 🔹 READ ACTIVITIES BY PREACHER (real-time stream)
+  // 🔹 READ ACTIVITIES BY PREACHER (real-time stream) - FIXED
   static Stream<QuerySnapshot<Map<String, dynamic>>> getActivitiesByPreacher(
-    String preacherId,
-  ) {
-    return _db
+    String authUid,  // This is the Firebase Auth UID
+  ) async* {
+    // First, find the preacher's registration document ID
+    final preacherQuery = await _db
+        .collection('registrations')
+        .where('authUid', isEqualTo: authUid)
+        .limit(1)
+        .get();
+    
+    if (preacherQuery.docs.isEmpty) {
+      debugPrint('❌ No preacher found with authUid: $authUid');
+      // Return empty stream if preacher not found
+      yield* Stream.value(
+        await _db.collection(_collection).where('assignedPreacherId', isEqualTo: 'no-match').get()
+      ).asBroadcastStream();
+      return;
+    }
+    
+    final preacherId = preacherQuery.docs.first.id;
+    debugPrint('✅ Found preacher ID: $preacherId for authUid: $authUid');
+    
+    // Now query activities with the correct preacher ID
+    yield* _db
         .collection(_collection)
         .where('assignedPreacherId', isEqualTo: preacherId)
         .orderBy('scheduledDate', descending: true)
