@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../Models/Kpi.dart';
 import '../../Provider/KpiController.dart';
-import 'formKpiPage.dart'; // Import your Form page
+import 'formKpiPage.dart';
+import 'viewKpiPage.dart';
 
 class ListKpiPage extends StatefulWidget {
   const ListKpiPage({super.key});
@@ -13,13 +16,16 @@ class ListKpiPage extends StatefulWidget {
 class _ListKpiPageState extends State<ListKpiPage> {
   final KpiController _controller = KpiController();
   List<Kpi> kpiList = [];
+  String? userRole; // To store current user's role
 
   @override
   void initState() {
     super.initState();
     _loadKpiList();
+    _loadUserRole();
   }
 
+  // Load all KPI records
   void _loadKpiList() async {
     final list = await _controller.getAllKpi();
     setState(() {
@@ -27,7 +33,18 @@ class _ListKpiPageState extends State<ListKpiPage> {
     });
   }
 
-  // Delete KPI using document ID
+  // Load current user's role from Firestore
+  void _loadUserRole() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      setState(() {
+        userRole = doc.data()?['role'];
+      });
+    }
+  }
+
+  // Delete KPI
   void _deleteKpi(String docId) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -54,15 +71,41 @@ class _ListKpiPageState extends State<ListKpiPage> {
     }
   }
 
-  // Navigate to FormKpiPage to add a new KPI
+  // Edit KPI
+  void _editKpi(Kpi kpi) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FormKpiPage(
+          kpiData: kpi.toMap(),
+          docId: kpi.docId, // Pass docId to allow update
+        ),
+      ),
+    );
+    _loadKpiList();
+  }
+
+  // View KPI
+  void _viewKpi(Kpi kpi) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ViewKpiPage(
+          docId: kpi.docId, // View-only page
+        ),
+      ),
+    );
+  }
+
+  // Add KPI
   void _addKpi() async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const FormKpiPage(), // No data = Add mode
+        builder: (_) => const FormKpiPage(),
       ),
     );
-    _loadKpiList(); // Refresh list after returning
+    _loadKpiList();
   }
 
   @override
@@ -77,31 +120,39 @@ class _ListKpiPageState extends State<ListKpiPage> {
                 final kpi = kpiList[index];
                 return ListTile(
                   title: Text(kpi.kpiTitle),
-                  subtitle: Text(
-                    'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteKpi(kpi.docId),
-                  ),
-                  onTap: () async {
-                    // Optional: Edit KPI on tap
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => FormKpiPage(kpiData: kpi.toMap()),
-                      ),
-                    );
-                    _loadKpiList();
-                  },
+                  subtitle: Text('Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
+                  // Show edit/delete buttons only for staff/admin
+                  trailing: (userRole == 'staff' || userRole == 'admin')
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _editKpi(kpi),
+                              tooltip: 'Edit KPI',
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteKpi(kpi.docId),
+                              tooltip: 'Delete KPI',
+                            ),
+                          ],
+                        )
+                      : null,
+                  // Tap navigates to view page for everyone
+                  onTap: () => _viewKpi(kpi),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addKpi,
-        icon: const Icon(Icons.add),
-        label: const Text('Add KPI'),
-      ),
+      // Add button visible only for staff/admin
+      floatingActionButton: (userRole == 'staff' || userRole == 'admin')
+          ? FloatingActionButton.extended(
+              onPressed: _addKpi,
+              icon: const Icon(Icons.add),
+              label: const Text('Add KPI'),
+            )
+          : null,
     );
   }
 }
