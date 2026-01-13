@@ -221,7 +221,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => const ListKpiPage(),
+                          builder: (_) => ListKpiPage(),
                         ),
                       );
                     },
