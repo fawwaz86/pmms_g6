@@ -98,7 +98,7 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
     );
   }
 
-  // ================= UI =================
+  // ================= UI HELPERS =================
 
   Widget _field(
     TextEditingController c,
@@ -133,8 +133,9 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
         ),
-        items:
-            items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+        items: items
+            .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+            .toList(),
         onChanged: (v) => onChanged(v!),
       ),
     );
@@ -178,7 +179,7 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
     setState(() => _loading = true);
 
     try {
-      // 🔐 SECONDARY AUTH (CRITICAL FIX)
+      // 🔐 SECONDARY AUTH (DO NOT LOG OUT STAFF)
       final secondaryApp = await Firebase.initializeApp(
         name: 'Secondary',
         options: Firebase.app().options,
@@ -186,6 +187,7 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
 
       final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
 
+      // CREATE PREACHER AUTH ACCOUNT
       final userCred =
           await secondaryAuth.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
@@ -194,7 +196,7 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
 
       final uid = userCred.user!.uid;
 
-      // Firestore data
+      // SAVE REGISTRATION (OPTIONAL – FOR ADMIN RECORD)
       await RegistrationController.addRegistration({
         'authUid': uid,
         'preacherName': _nameController.text,
@@ -207,17 +209,30 @@ class _AddRegistrationPageState extends State<AddRegistrationPage> {
         'qualification': _qualification,
         'institutionName': _institutionController.text,
         'preacherField': _fieldController.text,
+        'status': 'active',
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // 🔑 SAVE FULL PROFILE INTO USERS COLLECTION
       await FirebaseFirestore.instance.collection('users').doc(uid).set({
         'name': _nameController.text,
         'email': _emailController.text,
         'role': 'preacher',
         'status': 'active',
+
+        'preacherIC': _icController.text,
+        'preacherGender': _gender,
+        'preacherDOB': _dob,
+        'preacherNationality': _nationality,
+        'preacherNumber': _phoneController.text,
+        'qualification': _qualification,
+        'institutionName': _institutionController.text,
+        'preacherField': _fieldController.text,
+
         'createdAt': FieldValue.serverTimestamp(),
       });
 
+      // SEND RESET PASSWORD EMAIL
       await secondaryAuth.sendPasswordResetEmail(
         email: _emailController.text.trim(),
       );
