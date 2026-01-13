@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "230413250726",
+    "project_id": "pmms-g6",
+    "storage_bucket": "pmms-g6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:230413250726:android:fc22b6c328c1f9b36dc467",
+        "android_client_info": {
+          "package_name": "com.example.pmms_g6"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAqQkkbblO1hoLP6qS03mTvtXZFjl7QvaY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
