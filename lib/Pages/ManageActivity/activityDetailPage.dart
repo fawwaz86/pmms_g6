@@ -1,10 +1,9 @@
-// lib/Pages/ManageActivity/activityDetailPage.dart
-
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../Models/activity.dart';
-// For GPS functionality, you'll need to add to pubspec.yaml:
-// geolocator: ^10.1.0
-// permission_handler: ^11.0.1
+import '../../Provider/ActivityController.dart';
 
 class ActivityDetailPage extends StatefulWidget {
   final Activity activity;
@@ -22,6 +21,13 @@ class ActivityDetailPage extends StatefulWidget {
 
 class _ActivityDetailPageState extends State<ActivityDetailPage> {
   bool _isProcessing = false;
+  late Activity _currentActivity;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentActivity = widget.activity;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,61 +41,50 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Badge
             _buildStatusBadge(),
             const SizedBox(height: 20),
-
-            // Activity Title
             Text(
-              widget.activity.title,
+              _currentActivity.title,
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 20),
-
-            // Activity Details Card
             _buildDetailCard(
               icon: Icons.description,
               title: 'Description',
-              content: widget.activity.description,
+              content: _currentActivity.description,
             ),
             const SizedBox(height: 12),
-
             _buildDetailCard(
               icon: Icons.location_on,
               title: 'Location',
-              content: widget.activity.location,
+              content: _currentActivity.location,
             ),
             const SizedBox(height: 12),
-
             _buildDetailCard(
               icon: Icons.calendar_today,
               title: 'Scheduled Date',
-              content: _formatDate(widget.activity.scheduledDate),
+              content: _formatDate(_currentActivity.scheduledDate),
             ),
             const SizedBox(height: 12),
-
             _buildDetailCard(
               icon: Icons.person,
               title: 'Assigned Preacher',
-              content: widget.activity.assignedPreacherName,
+              content: _currentActivity.assignedPreacherName,
             ),
             const SizedBox(height: 12),
-
-            if (widget.activity.notes != null && 
-                widget.activity.notes!.isNotEmpty) ...[
+            if (_currentActivity.notes != null && 
+                _currentActivity.notes!.isNotEmpty) ...[
               _buildDetailCard(
                 icon: Icons.note,
                 title: 'Notes',
-                content: widget.activity.notes!,
+                content: _currentActivity.notes!,
               ),
               const SizedBox(height: 12),
             ],
-
-            // Completion Information
-            if (widget.activity.status == ActivityStatus.completed) ...[
+            if (_currentActivity.status == ActivityStatus.completed) ...[
               const Divider(height: 32),
               const Text(
                 'Completion Details',
@@ -102,16 +97,12 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
               _buildCompletionInfo(),
               const SizedBox(height: 12),
             ],
-
-            // Created By Information
             const Divider(height: 32),
             _buildCreatedByInfo(),
             const SizedBox(height: 24),
-
-            // Action Buttons for Preacher
             if (widget.userRole == 'preacher' && 
-                widget.activity.status != ActivityStatus.completed &&
-                widget.activity.status != ActivityStatus.cancelled)
+                _currentActivity.status != ActivityStatus.completed &&
+                _currentActivity.status != ActivityStatus.cancelled)
               _buildPreacherActions(),
           ],
         ),
@@ -120,7 +111,7 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
   }
 
   Widget _buildStatusBadge() {
-    final statusColor = _getStatusColor(widget.activity.status);
+    final statusColor = _getStatusColor(_currentActivity.status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -132,13 +123,13 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            _getStatusIcon(widget.activity.status),
+            _getStatusIcon(_currentActivity.status),
             color: statusColor,
             size: 20,
           ),
           const SizedBox(width: 8),
           Text(
-            widget.activity.status.displayName,
+            _currentActivity.status.displayName,
             style: TextStyle(
               color: statusColor,
               fontWeight: FontWeight.bold,
@@ -211,24 +202,24 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
               ],
             ),
             const Divider(height: 20),
-            if (widget.activity.completedDate != null) ...[
+            if (_currentActivity.completedDate != null) ...[
               _buildInfoRow(
                 'Date & Time',
-                _formatDateTime(widget.activity.completedDate!),
+                _formatDateTime(_currentActivity.completedDate!),
               ),
               const SizedBox(height: 8),
             ],
-            if (widget.activity.completedLatitude != null &&
-                widget.activity.completedLongitude != null) ...[
+            if (_currentActivity.completedLatitude != null &&
+                _currentActivity.completedLongitude != null) ...[
               _buildInfoRow(
                 'GPS Location',
-                '${widget.activity.completedLatitude!.toStringAsFixed(6)}, ${widget.activity.completedLongitude!.toStringAsFixed(6)}',
+                '${_currentActivity.completedLatitude!.toStringAsFixed(6)}, ${_currentActivity.completedLongitude!.toStringAsFixed(6)}',
               ),
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 onPressed: () => _openInMaps(
-                  widget.activity.completedLatitude!,
-                  widget.activity.completedLongitude!,
+                  _currentActivity.completedLatitude!,
+                  _currentActivity.completedLongitude!,
                 ),
                 icon: const Icon(Icons.map),
                 label: const Text('View on Map'),
@@ -263,12 +254,12 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
             const SizedBox(height: 8),
             _buildInfoRow(
               'Created By',
-              widget.activity.createdBy,
+              _currentActivity.createdBy,
             ),
             const SizedBox(height: 4),
             _buildInfoRow(
               'Created On',
-              _formatDateTime(widget.activity.createdAt),
+              _formatDateTime(_currentActivity.createdAt),
             ),
           ],
         ),
@@ -348,24 +339,28 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
   }
 
   Future<void> _markAsCompleted() async {
-    setState(() {
-      _isProcessing = true;
-    });
+    setState(() => _isProcessing = true);
 
     try {
-      // TODO: Implement GPS location verification
-      // This requires adding the geolocator package
-      // Example:
-      // Position position = await Geolocator.getCurrentPosition(
-      //   desiredAccuracy: LocationAccuracy.high,
-      // );
+      // Check location permission
+      var status = await Permission.location.status;
+      if (!status.isGranted) {
+        status = await Permission.location.request();
+        if (!status.isGranted) {
+          throw Exception('Location permission denied');
+        }
+      }
 
-      // Simulate GPS check
-      await Future.delayed(const Duration(seconds: 2));
+      // Check if location services are enabled
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception('Location services are disabled. Please enable them.');
+      }
 
-      // For now, using dummy GPS coordinates
-      final double latitude = 3.5896 + (DateTime.now().millisecond / 10000);
-      final double longitude = 103.3893 + (DateTime.now().millisecond / 10000);
+      // Get current position
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
 
       if (mounted) {
         final confirm = await showDialog<bool>(
@@ -379,7 +374,7 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
                 const Text('GPS Location verified:'),
                 const SizedBox(height: 8),
                 Text(
-                  'Lat: ${latitude.toStringAsFixed(6)}\nLong: ${longitude.toStringAsFixed(6)}',
+                  'Lat: ${position.latitude.toStringAsFixed(6)}\nLong: ${position.longitude.toStringAsFixed(6)}',
                   style: const TextStyle(
                     fontFamily: 'monospace',
                     fontSize: 12,
@@ -407,24 +402,25 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
         );
 
         if (confirm == true) {
-          // TODO: Call API to update activity status with GPS coordinates
-          final updatedActivity = widget.activity.copyWith(
-            status: ActivityStatus.completed,
-            completedDate: DateTime.now(),
-            completedLatitude: latitude,
-            completedLongitude: longitude,
+          // Using static method from Controller
+          final success = await ActivityController.markActivityCompleted(
+            docId: _currentActivity.id,
+            latitude: position.latitude,
+            longitude: position.longitude,
           );
 
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Activity marked as completed successfully!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-
-            // Return to previous screen
-            Navigator.pop(context, updatedActivity);
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Activity marked as completed successfully!'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              Navigator.pop(context, true);
+            } else {
+              throw Exception('Failed to update activity');
+            }
           }
         }
       }
@@ -439,21 +435,27 @@ class _ActivityDetailPageState extends State<ActivityDetailPage> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isProcessing = false;
-        });
+        setState(() => _isProcessing = false);
       }
     }
   }
 
-  void _openInMaps(double latitude, double longitude) {
-    // TODO: Implement opening in maps app
-    // You can use url_launcher package
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening location: $latitude, $longitude'),
-      ),
-    );
+  Future<void> _openInMaps(double latitude, double longitude) async {
+    final url = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    final uri = Uri.parse(url);
+    
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open maps'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Color _getStatusColor(ActivityStatus status) {
