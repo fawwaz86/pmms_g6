@@ -13,16 +13,14 @@ class ViewRegistrationPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('View Registration')),
+      appBar: AppBar(title: const Text('Preacher Profile')),
       body: FutureBuilder<DocumentSnapshot<Map<String, dynamic>>>(
         future: RegistrationController.getRegistrationByDocId(docId),
         builder: (context, snapshot) {
-          // Loading
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          // Error or no data
           if (!snapshot.hasData || !snapshot.data!.exists) {
             return const Center(child: Text('Registration not found'));
           }
@@ -31,8 +29,7 @@ class ViewRegistrationPage extends StatelessWidget {
 
           return Padding(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: ListView(
               children: [
                 _info('Name', data['preacherName']),
                 _info('IC / Passport', data['preacherIC']),
@@ -50,6 +47,12 @@ class ViewRegistrationPage extends StatelessWidget {
                 _info('Qualification', data['qualification']),
                 _info('Institution', data['institutionName']),
                 _info('Field', data['preacherField']),
+
+                const Divider(height: 30),
+
+                // ✅ ASSIGNMENT (VIEW ONLY)
+                _info('Area', data['area'] ?? '-'),
+                _info('Mosque', data['mosque'] ?? '-'),
               ],
             ),
           );
@@ -60,7 +63,7 @@ class ViewRegistrationPage extends StatelessWidget {
 
   Widget _info(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         '$label: $value',
         style: const TextStyle(fontSize: 16),
