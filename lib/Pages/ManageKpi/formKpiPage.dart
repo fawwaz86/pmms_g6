@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import '../../Provider/KpiController.dart';
 
 class FormKpiPage extends StatefulWidget {
-  final Map<String, dynamic>? kpiData;
-  final String? docId; 
+  final Map<String, dynamic>? kpiData; // Existing KPI data for edit
+  final String? docId;                  // Firestore document ID for edit
 
   const FormKpiPage({super.key, this.kpiData, this.docId});
 
@@ -17,7 +17,7 @@ class _FormKpiPageState extends State<FormKpiPage> {
   final _formKey = GlobalKey<FormState>();
   final KpiController _controller = KpiController();
 
-  // Controllers for all mandatory fields per Data Dictionary Section 2.2.5
+  // Controllers for all fields
   late TextEditingController _titleController;
   late TextEditingController _descController;
   late TextEditingController _targetController;
@@ -29,6 +29,8 @@ class _FormKpiPageState extends State<FormKpiPage> {
   late TextEditingController _preacherIdController;
   late TextEditingController _assignActIdController;
   late TextEditingController _staffIdController;
+
+  bool get isEditMode => widget.docId != null;
 
   @override
   void initState() {
@@ -46,71 +48,67 @@ class _FormKpiPageState extends State<FormKpiPage> {
     _yearController = TextEditingController(text: data?['kpiYear']?.toString() ?? '');
     _categoryController = TextEditingController(text: data?['kpiCategory'] ?? '');
     _remarksController = TextEditingController(text: data?['kpiRemarks'] ?? '');
-    
-    // Foreign Keys & Audit IDs (NOT NULL)
     _preacherIdController = TextEditingController(text: data?['preacherID']?.toString() ?? '');
     _assignActIdController = TextEditingController(text: data?['assignActID']?.toString() ?? '');
-    _staffIdController = TextEditingController(text: data?['staffID']?.toString() ?? '1'); 
+    _staffIdController = TextEditingController(text: data?['staffID']?.toString() ?? '1');
   }
 
   @override
   void dispose() {
-    // Prevent memory leaks
-    for (var controller in [
+    for (var c in [
       _titleController, _descController, _targetController, _unitController,
       _indicatorController, _yearController, _categoryController, _remarksController,
       _preacherIdController, _assignActIdController, _staffIdController
     ]) {
-      controller.dispose();
+      c.dispose();
     }
     super.dispose();
   }
 
   void _submitKpi() async {
-    if (_formKey.currentState!.validate()) {
-      // Create data map matching the Kpi model requirements
-      final Map<String, dynamic> kpiData = {
-        'kpiTitle': _titleController.text.trim(),
-        'kpiDescription': _descController.text.trim(),
-        'kpiCategory': _categoryController.text.trim(),
-        'kpiYear': int.tryParse(_yearController.text), 
-        'kpiTarget': int.tryParse(_targetController.text), 
-        'kpiUnitOfMeasure': _unitController.text.trim(),
-        'kpiIndicator': _indicatorController.text.trim(),
-        'kpiRemarks': _remarksController.text.trim(),
-        'staffID': int.tryParse(_staffIdController.text),
-        'preacherID': int.tryParse(_preacherIdController.text),
-        'assignActID': int.tryParse(_assignActIdController.text),
-      };
+    if (!_formKey.currentState!.validate()) return;
 
-      bool success;
-      if (widget.docId == null) {
-        success = await _controller.createKpi(kpiData);
-      } else {
-        success = await _controller.updateKpi(widget.docId!, kpiData);
-      }
+    final Map<String, dynamic> kpiData = {
+      'kpiTitle': _titleController.text.trim(),
+      'kpiDescription': _descController.text.trim(),
+      'kpiCategory': _categoryController.text.trim(),
+      'kpiYear': int.tryParse(_yearController.text),
+      'kpiTarget': int.tryParse(_targetController.text),
+      'kpiUnitOfMeasure': _unitController.text.trim(),
+      'kpiIndicator': _indicatorController.text.trim(),
+      'kpiRemarks': _remarksController.text.trim(),
+      'staffID': int.tryParse(_staffIdController.text),
+      'preacherID': int.tryParse(_preacherIdController.text),
+      'assignActID': int.tryParse(_assignActIdController.text),
+    };
 
-      if (mounted) {
-        if (success) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('KPI saved successfully')),
-          );
-          Navigator.pop(context, true); 
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Submission failed. Check validation console.')),
-          );
-        }
-      }
+    bool success;
+    if (isEditMode) {
+      // Edit mode
+      success = await _controller.updateKpi(widget.docId!, kpiData);
+    } else {
+      // Add mode
+      success = await _controller.createKpi(kpiData);
     }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(success
+            ? 'KPI saved successfully'
+            : 'Submission failed. Check validation console.'),
+      ),
+    );
+
+    if (success) Navigator.pop(context, true);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.docId == null ? 'Add New KPI' : 'Edit KPI Details'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(isEditMode ? 'Edit KPI Details' : 'Add New KPI'),
       ),
       body: Form(
         key: _formKey,
@@ -121,40 +119,39 @@ class _FormKpiPageState extends State<FormKpiPage> {
             children: [
               _sectionHeader("Basic Data"),
               _buildTextField(_titleController, 'KPI Title', true),
-              _buildTextField(_categoryController, 'Category (e.g., Education)', true),
+              _buildTextField(_categoryController, 'Category', true),
               _buildTextField(_yearController, 'Reporting Year', true, isNumber: true),
-              
-              const SizedBox(height: 15),
+
               _sectionHeader("Target Metrics"),
               _buildTextField(_targetController, 'Target Quantity', true, isNumber: true),
-              _buildTextField(_unitController, 'Unit (e.g., People, Sessions)', true),
-              _buildTextField(_indicatorController, 'Indicator Name', true),
-              
-              const SizedBox(height: 15),
+              _buildTextField(_unitController, 'Unit', true),
+              _buildTextField(_indicatorController, 'Indicator', true),
+
               _sectionHeader("Linking & Audit"),
               _buildTextField(_preacherIdController, 'Preacher ID', true, isNumber: true),
               _buildTextField(_assignActIdController, 'Activity ID', true, isNumber: true),
-              _buildTextField(_staffIdController, 'Staff ID (Your ID)', true, isNumber: true),
+              _buildTextField(_staffIdController, 'Staff ID', true, isNumber: true),
 
-              const SizedBox(height: 15),
               _sectionHeader("Optional Notes"),
               _buildTextField(_descController, 'Description', false, maxLines: 2),
               _buildTextField(_remarksController, 'Internal Remarks', false, maxLines: 2),
-              
+
               const SizedBox(height: 30),
               ElevatedButton(
                 onPressed: _submitKpi,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 55),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                child: const Text('SUBMIT TO DATABASE', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(
+                  isEditMode ? 'UPDATE KPI' : 'ADD KPI',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(height: 10),
               Center(
                 child: TextButton(
-                  onPressed: () => Navigator.pop(context), 
-                  child: const Text('Cancel and Return'),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
                 ),
               ),
             ],
@@ -168,21 +165,27 @@ class _FormKpiPageState extends State<FormKpiPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 10),
         Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const Divider(),
       ],
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, bool required, {bool isNumber = false, int maxLines = 1}) {
+  Widget _buildTextField(
+    TextEditingController controller,
+    String label,
+    bool required, {
+    bool isNumber = false,
+    int maxLines = 1,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: TextFormField(
         controller: controller,
         decoration: InputDecoration(
-          labelText: label, 
+          labelText: label,
           border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         ),
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
         maxLines: maxLines,
