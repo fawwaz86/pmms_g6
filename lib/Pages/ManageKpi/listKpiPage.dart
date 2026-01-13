@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../Models/Kpi.dart';
 import '../../Provider/KpiController.dart';
 import 'formKpiPage.dart';
@@ -14,18 +16,33 @@ class ListKpiPage extends StatefulWidget {
 class _ListKpiPageState extends State<ListKpiPage> {
   final KpiController _controller = KpiController();
   List<Kpi> kpiList = [];
+  String? userRole; // To store current user's role
 
   @override
   void initState() {
     super.initState();
     _loadKpiList();
+    _loadUserRole();
   }
 
+  // Load all KPI records
   void _loadKpiList() async {
     final list = await _controller.getAllKpi();
     setState(() {
       kpiList = list;
     });
+  }
+
+  // Load current user's role from Firestore
+  void _loadUserRole() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid != null) {
+      final doc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      setState(() {
+        userRole = doc.data()?['role'];
+      });
+    }
   }
 
   // Delete KPI
@@ -62,7 +79,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
       MaterialPageRoute(
         builder: (_) => FormKpiPage(
           kpiData: kpi.toMap(),
-          docId: kpi.docId, // <-- Add this line
+          docId: kpi.docId, // Pass docId to allow update
         ),
       ),
     );
@@ -75,7 +92,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
       context,
       MaterialPageRoute(
         builder: (_) => ViewKpiPage(
-          docId: kpi.docId, // ✅ pass the required docId
+          docId: kpi.docId, // View-only page
         ),
       ),
     );
@@ -106,31 +123,38 @@ class _ListKpiPageState extends State<ListKpiPage> {
                   title: Text(kpi.kpiTitle),
                   subtitle: Text(
                       'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min, // Shrinks the row
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _editKpi(kpi),
-                        tooltip: 'Edit KPI',
-                      ),
-                      const SizedBox(width: 8), // Spacing between icons
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _deleteKpi(kpi.docId),
-                        tooltip: 'Delete KPI',
-                      ),
-                    ],
-                  ),
-                  onTap: () => _viewKpi(kpi), // Tap navigates to view page
+                  // Show edit/delete buttons only for staff/admin
+                  trailing: (userRole == 'staff' || userRole == 'admin')
+                      ? Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _editKpi(kpi),
+                              tooltip: 'Edit KPI',
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _deleteKpi(kpi.docId),
+                              tooltip: 'Delete KPI',
+                            ),
+                          ],
+                        )
+                      : null,
+                  // Tap navigates to view page for everyone
+                  onTap: () => _viewKpi(kpi),
                 );
               },
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addKpi,
-        icon: const Icon(Icons.add),
-        label: const Text('Add KPI'),
-      ),
+      // Add button visible only for staff/admin
+      floatingActionButton: (userRole == 'staff' || userRole == 'admin')
+          ? FloatingActionButton.extended(
+              onPressed: _addKpi,
+              icon: const Icon(Icons.add),
+              label: const Text('Add KPI'),
+            )
+          : null,
     );
   }
 }
