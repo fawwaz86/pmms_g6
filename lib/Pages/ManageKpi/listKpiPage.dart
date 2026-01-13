@@ -33,19 +33,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
     });
   }
 
-  // Load current user's role from Firestore
-  void _loadUserRole() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      final doc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
-      setState(() {
-        userRole = doc.data()?['role']; // e.g., "staff", "preacher", "admin"
-      });
-    }
-  }
-
-  // Delete KPI
+  // Delete KPI using document ID
   void _deleteKpi(String docId) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -122,26 +110,22 @@ class _ListKpiPageState extends State<ListKpiPage> {
                 return ListTile(
                   title: Text(kpi.kpiTitle),
                   subtitle: Text(
-                      'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
-                  trailing: (userRole == 'staff' || userRole == 'admin')
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _editKpi(kpi),
-                              tooltip: 'Edit KPI',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deleteKpi(kpi.docId),
-                              tooltip: 'Delete KPI',
-                            ),
-                          ],
-                        )
-                      : null, // No edit/delete for preacher
-                  onTap: () =>
-                      _viewKpi(kpi), // Tap navigates to view page for everyone
+                    'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _deleteKpi(kpi.docId),
+                  ),
+                  onTap: () async {
+                    // Optional: Edit KPI on tap
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => FormKpiPage(kpiData: kpi.toMap()),
+                      ),
+                    );
+                    _loadKpiList();
+                  },
                 );
               },
             ),
