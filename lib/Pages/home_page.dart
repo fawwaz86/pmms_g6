@@ -19,6 +19,7 @@ class _HomePageState extends State<HomePage> {
   String userRole = '';
   String userName = '';
   String userId = '';
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -27,25 +28,50 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> loadUser() async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    try {
+      final uid = FirebaseAuth.instance.currentUser!.uid;
 
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(uid)
-        .get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
 
-    setState(() {
-      userRole = doc['role'];
-      userName = doc['name'];
-      userId = uid;
-    });
+      if (!doc.exists) {
+        throw Exception('User record not found');
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        userRole = doc['role'];
+        userName = doc['name'];
+        userId = uid;
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading user: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (userRole.isEmpty) {
+    // 🔄 Loading
+    if (isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // ❌ Unauthorized / broken user
+    if (userRole.isEmpty) {
+      return const Scaffold(
+        body: Center(child: Text('Unauthorized access')),
       );
     }
 
