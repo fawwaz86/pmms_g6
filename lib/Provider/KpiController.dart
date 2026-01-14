@@ -1,5 +1,3 @@
-// lib/Provider/KpiController.dart
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../Domain/Kpi.dart';
 
@@ -8,9 +6,19 @@ class KpiController {
       FirebaseFirestore.instance.collection('kpis');
 
   /// Get all KPIs
-  Future<List<Kpi>> getAllKpi() async {
+  /// - Admin / Staff → getAllKpi()
+  /// - Preacher → getAllKpi(preacherID: X)
+  Future<List<Kpi>> getAllKpi({int? preacherID}) async {
     try {
-      final snapshot = await _db.get();
+      Query query = _db;
+
+      // 🔐 Filter by preacherID if provided
+      if (preacherID != null) {
+        query = query.where('preacherID', isEqualTo: preacherID);
+      }
+
+      final snapshot = await query.get();
+
       return snapshot.docs.map((doc) {
         return Kpi.fromMap(
           doc.data() as Map<String, dynamic>,
@@ -78,7 +86,7 @@ class KpiController {
     }
   }
 
-  /// ✅ SAFE validation for Firestore data
+  /// Validation
   bool _isKpiDataValid(Map<String, dynamic> data) {
     final mandatoryFields = [
       'kpiTitle',
@@ -96,7 +104,6 @@ class KpiController {
         return false;
       }
 
-      // Only trim if it's a String
       if (data[field] is String && data[field].trim().isEmpty) {
         print('❌ VALIDATION FAILED: "$field" is empty');
         return false;

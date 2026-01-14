@@ -1,19 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class Kpi {
-  final String docId; // 🔹 Firestore document ID
+  final String docId; // Firestore document ID
   final String kpiTitle;
   final int assignActID;
-  final String? kpiDescription;
+  final String? kpiDescription; // optional
   final String kpiCategory;
   final int kpiYear;
   final int preacherID;
   final int kpiTarget;
   final String kpiUnitOfMeasure;
   final String kpiIndicator;
-  final String? kpiRemarks;
+  final String? kpiRemarks; // optional
   final int staffID;
-  final DateTime kpiCreatedDate;
+  final DateTime? kpiCreatedDate; // optional, auto-generated
 
   Kpi({
     required this.docId,
@@ -28,7 +28,7 @@ class Kpi {
     required this.kpiIndicator,
     this.kpiRemarks,
     required this.staffID,
-    required this.kpiCreatedDate,
+    this.kpiCreatedDate,
   });
 
   // Convert object → Firestore map
@@ -36,16 +36,16 @@ class Kpi {
     return {
       'kpiTitle': kpiTitle,
       'assignActID': assignActID,
-      'kpiDescription': kpiDescription,
+      'kpiDescription': kpiDescription?.isEmpty == true ? null : kpiDescription,
       'kpiCategory': kpiCategory,
       'kpiYear': kpiYear,
       'preacherID': preacherID,
       'kpiTarget': kpiTarget,
       'kpiUnitOfMeasure': kpiUnitOfMeasure,
       'kpiIndicator': kpiIndicator,
-      'kpiRemarks': kpiRemarks,
+      'kpiRemarks': kpiRemarks?.isEmpty == true ? null : kpiRemarks,
       'staffID': staffID,
-      'kpiCreatedDate': kpiCreatedDate.toIso8601String(),
+      'kpiCreatedDate': FieldValue.serverTimestamp(), // Auto timestamp
     };
   }
 
@@ -64,9 +64,11 @@ class Kpi {
       kpiIndicator: map['kpiIndicator'] ?? '',
       kpiRemarks: map['kpiRemarks'],
       staffID: (map['staffID'] as num?)?.toInt() ?? 0,
-      kpiCreatedDate: map['kpiCreatedDate'] is String
-          ? DateTime.parse(map['kpiCreatedDate'])
-          : (map['kpiCreatedDate'] as Timestamp).toDate(),
+      kpiCreatedDate: map['kpiCreatedDate'] == null
+          ? null
+          : (map['kpiCreatedDate'] is String
+              ? DateTime.parse(map['kpiCreatedDate'])
+              : (map['kpiCreatedDate'] as Timestamp).toDate()),
     );
   }
 }
