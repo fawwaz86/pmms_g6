@@ -16,36 +16,45 @@ class ListKpiPage extends StatefulWidget {
 class _ListKpiPageState extends State<ListKpiPage> {
   final KpiController _controller = KpiController();
   List<Kpi> kpiList = [];
-  String? userRole; // Current user's role (staff/admin/preacher)
+
+  String? userRole;
+  int? preacherID; // 🔑 Needed for filtering
 
   @override
   void initState() {
     super.initState();
-    _loadKpiList(); // Load KPI data
-    _loadUserRole(); // Load user role from Firestore
+    _loadUserAndKpi();
   }
 
-  /// Load all KPI records
-  void _loadKpiList() async {
-    final list = await _controller.getAllKpi();
-    setState(() {
-      kpiList = list;
-    });
-  }
-
-  /// Load current user's role from Firestore
-  void _loadUserRole() async {
+  /// Load user role AND KPI list correctly
+  Future<void> _loadUserAndKpi() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid != null) {
-      final doc =
-          await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    if (uid == null) return;
+
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+    userRole = userDoc.data()?['role'];
+
+    // 🧠 If preacher → filter by preacherID
+    if (userRole == 'preacher') {
+      preacherID = userDoc.data()?['preacherID'];
+
+      final list =
+          await _controller.getAllKpi(preacherID: preacherID);
       setState(() {
-        userRole = doc.data()?['role'];
+        kpiList = list;
+      });
+    } else {
+      // Admin / Staff → load all
+      final list = await _controller.getAllKpi();
+      setState(() {
+        kpiList = list;
       });
     }
   }
 
-  /// Delete KPI using document ID
+  /// Delete KPI
   void _deleteKpi(String docId) async {
     bool? confirm = await showDialog<bool>(
       context: context,
@@ -68,7 +77,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
 
     if (confirm == true) {
       bool success = await _controller.deleteKpi(docId);
-      if (success) _loadKpiList(); // Refresh list
+      if (success) _loadUserAndKpi();
     }
   }
 
@@ -79,11 +88,11 @@ class _ListKpiPageState extends State<ListKpiPage> {
       MaterialPageRoute(
         builder: (_) => FormKpiPage(
           kpiData: kpi.toMap(),
-          docId: kpi.docId, // Pass docId to allow update
+          docId: kpi.docId,
         ),
       ),
     );
-    _loadKpiList();
+    _loadUserAndKpi();
   }
 
   /// View KPI
@@ -91,9 +100,7 @@ class _ListKpiPageState extends State<ListKpiPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => ViewKpiPage(
-          docId: kpi.docId, // View-only page
-        ),
+        builder: (_) => ViewKpiPage(docId: kpi.docId),
       ),
     );
   }
@@ -102,11 +109,9 @@ class _ListKpiPageState extends State<ListKpiPage> {
   void _addKpi() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const FormKpiPage(),
-      ),
+      MaterialPageRoute(builder: (_) => const FormKpiPage()),
     );
-    _loadKpiList();
+    _loadUserAndKpi();
   }
 
   @override
@@ -123,36 +128,34 @@ class _ListKpiPageState extends State<ListKpiPage> {
                   title: Text(kpi.kpiTitle),
                   subtitle: Text(
                       'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
-                  // Show edit/delete only for staff/admin
                   trailing: (userRole == 'staff' || userRole == 'admin')
                       ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              icon:
+                                  const Icon(Icons.edit, color: Colors.blue),
                               onPressed: () => _editKpi(kpi),
-                              tooltip: 'Edit KPI',
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
+                              icon:
+                                  const Icon(Icons.delete, color: Colors.red),
                               onPressed: () => _deleteKpi(kpi.docId),
-                              tooltip: 'Delete KPI',
                             ),
                           ],
                         )
-                      : null, // Preacher cannot edit/delete
-                  onTap: () => _viewKpi(kpi), // Everyone can view
+                      : null,
+                  onTap: () => _viewKpi(kpi),
                 );
               },
             ),
-      // Floating button visible only for staff/admin
       floatingActionButton: (userRole == 'staff' || userRole == 'admin')
           ? FloatingActionButton.extended(
               onPressed: _addKpi,
               icon: const Icon(Icons.add),
               label: const Text('Add KPI'),
             )
-          : null, // Preacher sees no add button
+          : null,
     );
   }
 }
