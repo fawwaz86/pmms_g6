@@ -125,7 +125,7 @@ class _HomePageState extends State<HomePage> {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  // ACTIVITIES
+                  // ACTIVITIES - FIXED: No parameters needed
                   _buildModuleCard(
                     context,
                     title: 'Activities',
@@ -135,10 +135,7 @@ class _HomePageState extends State<HomePage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) => ListActivityPage(
-                            userRole: userRole,
-                            userId: userId,
-                          ),
+                          builder: (_) => const ListActivityPage(), // ✅ FIXED
                         ),
                       );
                     },
