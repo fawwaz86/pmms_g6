@@ -26,9 +26,7 @@ class _FormKpiPageState extends State<FormKpiPage> {
   late TextEditingController _remarksController;
   late TextEditingController _preacherIdController;
   late TextEditingController _assignActIdController;
-
-  // Hardcoded staff ID
-  final int _staffId = 1;
+  late TextEditingController _staffIdController; // Staff ID as string
 
   bool get isEditMode => widget.docId != null;
 
@@ -50,6 +48,7 @@ class _FormKpiPageState extends State<FormKpiPage> {
     _remarksController = TextEditingController(text: data?['kpiRemarks'] ?? '');
     _preacherIdController = TextEditingController(text: data?['preacherID']?.toString() ?? '');
     _assignActIdController = TextEditingController(text: data?['assignActID']?.toString() ?? '');
+    _staffIdController = TextEditingController(text: data?['staffID']?.toString() ?? '');
   }
 
   @override
@@ -57,7 +56,7 @@ class _FormKpiPageState extends State<FormKpiPage> {
     for (var c in [
       _titleController, _descController, _targetController, _unitController,
       _indicatorController, _yearController, _categoryController, _remarksController,
-      _preacherIdController, _assignActIdController
+      _preacherIdController, _assignActIdController, _staffIdController
     ]) {
       c.dispose();
     }
@@ -78,7 +77,7 @@ class _FormKpiPageState extends State<FormKpiPage> {
       'kpiUnitOfMeasure': _unitController.text.trim(),
       'kpiIndicator': _indicatorController.text.trim(),
       'kpiRemarks': _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim(),
-      'staffID': _staffId, // hardcoded staff ID
+      'staffID': _staffIdController.text.trim(), // <- staffID now string
     };
 
     bool success;
@@ -125,6 +124,7 @@ class _FormKpiPageState extends State<FormKpiPage> {
               _sectionHeader("Linking & Audit"),
               _buildTextField(_preacherIdController, 'Preacher ID', true, isNumber: true),
               _buildTextField(_assignActIdController, 'Activity ID', true, isNumber: true),
+              _buildTextField(_staffIdController, 'Staff ID', true), // <- string, no number validation
 
               _sectionHeader("Optional Notes"),
               _buildTextField(_descController, 'Description', false, maxLines: 2),
