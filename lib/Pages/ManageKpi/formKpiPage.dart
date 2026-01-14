@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../Provider/KpiController.dart';
 
 class FormKpiPage extends StatefulWidget {
@@ -29,7 +27,8 @@ class _FormKpiPageState extends State<FormKpiPage> {
   late TextEditingController _preacherIdController;
   late TextEditingController _assignActIdController;
 
-  int? _staffId; // <-- store staff ID here
+  // Hardcoded staff ID
+  final int _staffId = 1;
 
   bool get isEditMode => widget.docId != null;
 
@@ -37,7 +36,6 @@ class _FormKpiPageState extends State<FormKpiPage> {
   void initState() {
     super.initState();
     _initControllers();
-    _fetchCurrentStaffId(); // fetch staffID for logged-in user
   }
 
   void _initControllers() {
@@ -66,31 +64,8 @@ class _FormKpiPageState extends State<FormKpiPage> {
     super.dispose();
   }
 
-  Future<void> _fetchCurrentStaffId() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
-
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
-      if (doc.exists && doc.data()?['role'] == 'staff') {
-        setState(() {
-          _staffId = doc.data()?['staffID'];
-        });
-      }
-    } catch (e) {
-      debugPrint('Error fetching staffID: $e');
-    }
-  }
-
   void _submitKpi() async {
     if (!_formKey.currentState!.validate()) return;
-
-    if (_staffId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Staff ID not loaded yet. Please try again.')),
-      );
-      return;
-    }
 
     final Map<String, dynamic> kpiData = {
       'kpiTitle': _titleController.text.trim(),
@@ -103,7 +78,7 @@ class _FormKpiPageState extends State<FormKpiPage> {
       'kpiUnitOfMeasure': _unitController.text.trim(),
       'kpiIndicator': _indicatorController.text.trim(),
       'kpiRemarks': _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim(),
-      'staffID': _staffId, // <-- use logged-in staff ID
+      'staffID': _staffId, // hardcoded staff ID
     };
 
     bool success;

@@ -8,7 +8,7 @@ class KpiController {
   /// Get all KPIs
   /// - Admin / Staff → getAllKpi()
   /// - Preacher → getAllKpi(preacherID: X)
-  Future<List<Kpi>> getAllKpi({int? preacherID}) async {
+  Future<List<Kpi>> getAllKpi({dynamic preacherID}) async {
     try {
       Query query = _db;
 
