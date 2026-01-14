@@ -12,7 +12,7 @@ class Kpi {
   final String kpiUnitOfMeasure;
   final String kpiIndicator;
   final String? kpiRemarks; // optional
-  final int staffID;
+  final dynamic staffID; // number OR string UID
   final DateTime? kpiCreatedDate; // optional, auto-generated
 
   Kpi({
@@ -45,29 +45,41 @@ class Kpi {
       'kpiIndicator': kpiIndicator,
       'kpiRemarks': kpiRemarks?.isEmpty == true ? null : kpiRemarks,
       'staffID': staffID,
-      'kpiCreatedDate': FieldValue.serverTimestamp(), // Auto timestamp
+      'kpiCreatedDate': FieldValue.serverTimestamp(),
     };
   }
 
-  // Convert Firestore → object
+  // Convert Firestore → object safely
   factory Kpi.fromMap(Map<String, dynamic> map, String docId) {
+    int parseNum(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
+    dynamic parseStaffID(dynamic value) {
+      if (value is num) return value.toInt();
+      if (value is String) return value;
+      return null;
+    }
+
     return Kpi(
       docId: docId,
       kpiTitle: map['kpiTitle'] ?? '',
-      assignActID: (map['assignActID'] as num?)?.toInt() ?? 0,
+      assignActID: parseNum(map['assignActID']),
       kpiDescription: map['kpiDescription'],
       kpiCategory: map['kpiCategory'] ?? '',
-      kpiYear: (map['kpiYear'] as num?)?.toInt() ?? 0,
-      preacherID: (map['preacherID'] as num?)?.toInt() ?? 0,
-      kpiTarget: (map['kpiTarget'] as num?)?.toInt() ?? 0,
+      kpiYear: parseNum(map['kpiYear']),
+      preacherID: parseNum(map['preacherID']),
+      kpiTarget: parseNum(map['kpiTarget']),
       kpiUnitOfMeasure: map['kpiUnitOfMeasure'] ?? '',
       kpiIndicator: map['kpiIndicator'] ?? '',
       kpiRemarks: map['kpiRemarks'],
-      staffID: (map['staffID'] as num?)?.toInt() ?? 0,
+      staffID: parseStaffID(map['staffID']),
       kpiCreatedDate: map['kpiCreatedDate'] == null
           ? null
           : (map['kpiCreatedDate'] is String
-              ? DateTime.parse(map['kpiCreatedDate'])
+              ? DateTime.tryParse(map['kpiCreatedDate'])
               : (map['kpiCreatedDate'] as Timestamp).toDate()),
     );
   }

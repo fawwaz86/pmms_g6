@@ -18,7 +18,9 @@ class _ListKpiPageState extends State<ListKpiPage> {
   List<Kpi> kpiList = [];
 
   String? userRole;
-  int? preacherID; // 🔑 Needed for filtering
+  int? preacherID; // Needed for filtering
+
+  bool isLoading = true; // show loading while fetching data
 
   @override
   void initState() {
@@ -28,29 +30,51 @@ class _ListKpiPageState extends State<ListKpiPage> {
 
   /// Load user role AND KPI list correctly
   Future<void> _loadUserAndKpi() async {
+    setState(() {
+      isLoading = true;
+    });
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    try {
+      final userDoc =
+          await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
-    userRole = userDoc.data()?['role'];
+      final userData = userDoc.data();
+      if (userData == null) {
+        print('❌ User document not found!');
+        return;
+      }
 
-    // 🧠 If preacher → filter by preacherID
-    if (userRole == 'preacher') {
-      preacherID = userDoc.data()?['preacherID'];
+      userRole = userData['role'];
 
-      final list =
-          await _controller.getAllKpi(preacherID: preacherID);
-      setState(() {
-        kpiList = list;
-      });
-    } else {
-      // Admin / Staff → load all
-      final list = await _controller.getAllKpi();
-      setState(() {
-        kpiList = list;
-      });
+      if (userRole == 'preacher') {
+        preacherID = userData['preacherID'];
+        if (preacherID == null) {
+          print('❌ preacherID missing in users doc');
+          kpiList = [];
+        } else {
+          kpiList = await _controller.getAllKpi(preacherID: preacherID);
+        }
+      } else {
+        // Staff or Admin → load all KPIs
+        kpiList = await _controller.getAllKpi();
+      }
+
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error loading user & KPI: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          kpiList = [];
+        });
+      }
     }
   }
 
@@ -118,37 +142,37 @@ class _ListKpiPageState extends State<ListKpiPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('KPI List')),
-      body: kpiList.isEmpty
-          ? const Center(child: Text('No KPI records found'))
-          : ListView.builder(
-              itemCount: kpiList.length,
-              itemBuilder: (context, index) {
-                final kpi = kpiList[index];
-                return ListTile(
-                  title: Text(kpi.kpiTitle),
-                  subtitle: Text(
-                      'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
-                  trailing: (userRole == 'staff' || userRole == 'admin')
-                      ? Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon:
-                                  const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => _editKpi(kpi),
-                            ),
-                            IconButton(
-                              icon:
-                                  const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => _deleteKpi(kpi.docId),
-                            ),
-                          ],
-                        )
-                      : null,
-                  onTap: () => _viewKpi(kpi),
-                );
-              },
-            ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : kpiList.isEmpty
+              ? const Center(child: Text('No KPI records found'))
+              : ListView.builder(
+                  itemCount: kpiList.length,
+                  itemBuilder: (context, index) {
+                    final kpi = kpiList[index];
+                    return ListTile(
+                      title: Text(kpi.kpiTitle),
+                      subtitle: Text(
+                          'Preacher ID: ${kpi.preacherID}\nYear: ${kpi.kpiYear}'),
+                      trailing: (userRole == 'staff' || userRole == 'admin')
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: Colors.blue),
+                                  onPressed: () => _editKpi(kpi),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _deleteKpi(kpi.docId),
+                                ),
+                              ],
+                            )
+                          : null,
+                      onTap: () => _viewKpi(kpi),
+                    );
+                  },
+                ),
       floatingActionButton: (userRole == 'staff' || userRole == 'admin')
           ? FloatingActionButton.extended(
               onPressed: _addKpi,
