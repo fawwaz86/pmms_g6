@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../Models/activity.dart';
+import '../../Domain/activity.dart';
 import '../../Provider/ActivityController.dart';
 import 'addActivityPage.dart';
 import 'editActivityPage.dart';
